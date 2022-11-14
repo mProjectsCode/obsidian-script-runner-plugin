@@ -1,4 +1,7 @@
 # Obsidian Script Runner Plugin
+
+## This plugin is still in development
+
 ### Plugin idea
 Special codeblock that has a run button in reading mode
 
