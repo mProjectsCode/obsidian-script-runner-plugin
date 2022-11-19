@@ -6,3 +6,32 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.script-runner-row-flex {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+
+.script-runner-expand {
+	flex: 1;
+}
+
+.script-runner-settings-group {
+	padding: 0.75em 0;
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+.script-runner-settings-group > :first-child {
+	margin-top: 0;
+}
+
+.script-runner-settings-group > :last-child {
+	margin-bottom: 0;
+}
+
+.script-runner-settings-group > .setting-item {
+	margin: 0;
+	padding: 0.25em;
+	border: none;
+}
