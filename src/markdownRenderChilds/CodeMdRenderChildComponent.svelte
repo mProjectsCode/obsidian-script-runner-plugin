@@ -1,13 +1,34 @@
 <script lang="ts">
-	import {CodeMdRenderChildData} from './AbstractCodeMdRenderChild';
+	import {CodeMdRenderChildData, LogLevel} from './AbstractCodeMdRenderChild';
 	import {Button, SettingItem} from 'obsidian-svelte';
+	import {getPlaceholderUUID} from '../utils/Utils';
 
 	export let data: CodeMdRenderChildData;
+	export let idCommentPlaceholder: string;
 	export let run: () => Promise<void>;
+
+	export function update() {
+		data = data;
+	}
+
+	export function updateConsole() {
+		data.console = data.console;
+	}
 
 	function runCode() {
 		run();
 		data = data;
+	}
+
+	function getClassForLogLevel(level: LogLevel) {
+		let logLevelMap: Record<LogLevel, string> = {
+			[LogLevel.TRACE]: 'script-runner-trace-console',
+			[LogLevel.INFO]: '',
+			[LogLevel.WARN]: 'script-runner-warn-console',
+			[LogLevel.ERROR]: 'script-runner-error-console',
+		};
+
+		return logLevelMap[level] ?? '';
 	}
 </script>
 
@@ -16,14 +37,38 @@
 	<div>
 		<pre class="language-js" tabindex=0><code class="language-js">{data.content}</code></pre>
 	</div>
-	<div class="script-runner-settings-group">
-		<SettingItem
-			name="Run"
-			description="Run your script">
-			<Button on:click={runCode}>Run</Button>
-		</SettingItem>
-		<div>
-			<pre class="language-console"><code>{data.result}</code></pre>
+	{#if data.id }
+		<div class="script-runner-settings-group">
+			<SettingItem
+				name="Run"
+				description="Run your script">
+				<Button on:click={runCode}>{data.running ? 'Running...' : 'Run'}</Button>
+			</SettingItem>
+			<div>
+				<pre class="language-console"><code>{#each data.console as logEntry}<span
+					class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
+			</div>
 		</div>
-	</div>
+	{:else}
+		<div class="script-runner-settings-group">
+			<h4>Missing Id</h4>
+			<p>
+				The code block is missing an id or the id comment is incorrect.
+			</p>
+			<p><b>Reason</b></p>
+			<code class="script-runner-error-ui">{data.idError}</code>
+			<p>
+				The id comment should look like
+			</p>
+			<code>{idCommentPlaceholder}</code>
+			<p>
+				and be the first line in the code block.
+			</p>
+			<p>
+				Where <code>{getPlaceholderUUID()}</code> is a unique id for this code block.
+				You can generate UUIDs with the <code>Generate UUID</code> command.
+			</p>
+		</div>
+	{/if}
+
 </div>

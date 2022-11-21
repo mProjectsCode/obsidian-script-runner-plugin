@@ -1,4 +1,4 @@
-import {App, PluginSettingTab, Setting} from 'obsidian';
+import {App, PluginSettingTab} from 'obsidian';
 import ScriptRunnerPlugin from '../main';
 import {CodeMdRenderChildData} from '../markdownRenderChilds/AbstractCodeMdRenderChild';
 

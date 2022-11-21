@@ -35,3 +35,19 @@ If your plugin does not need CSS, delete this file.
 	padding: 0.25em;
 	border: none;
 }
+
+code.script-runner-error-ui {
+	color: var(--color-red);
+}
+
+.script-runner-trace-console {
+	color: var(--color-blue);
+}
+
+.script-runner-warn-console {
+	color: var(--color-orange);
+}
+
+.script-runner-error-console {
+	color: var(--color-red);
+}
