@@ -31,8 +31,6 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		console.log('creating file', filePath);
 		const tFile = await this.plugin.app.vault.create(filePath, this.data.content);
 
-		const command = `py -u "${absoluteFilePath}"`;
-		console.log(command);
 		this.process = spawn('py', ['-u', absoluteFilePath], {
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
