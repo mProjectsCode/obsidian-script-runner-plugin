@@ -1,10 +1,11 @@
 <script lang="ts">
 	import {CodeMdRenderChildData, LogLevel} from './AbstractCodeMdRenderChild';
-	import {Button, SettingItem} from 'obsidian-svelte';
+	import {Button, SettingItem, TextInput} from 'obsidian-svelte';
 	import {getPlaceholderUUID} from '../utils/Utils';
 
 	export let data: CodeMdRenderChildData;
 	export let idCommentPlaceholder: string;
+	export let sendToStdin: (data: string) => Promise<void>;
 	export let run: () => Promise<void>;
 
 	export function update() {
@@ -30,12 +31,16 @@
 
 		return logLevelMap[level] ?? '';
 	}
+
+	function getCodeBlockLang() {
+		return `language-${data.language}`;
+	}
 </script>
 
 <div class="card" style="background: var(--background-secondary)">
 	<h3>Script Runner</h3>
 	<div>
-		<pre class="language-js" tabindex=0><code class="language-js">{data.content}</code></pre>
+		<pre class={getCodeBlockLang()} tabindex=0><code class={getCodeBlockLang()}>{data.content}</code></pre>
 	</div>
 	{#if data.id }
 		<div class="script-runner-settings-group">
@@ -44,6 +49,10 @@
 				description="Run your script">
 				<Button on:click={runCode}>{data.running ? 'Running...' : 'Run'}</Button>
 			</SettingItem>
+			<div class="script-runner-row-flex">
+				<TextInput class="script-runner-expand" bind:value={data.input}></TextInput>
+				<Button on:click={sendToStdin(data.input)}>Input</Button>
+			</div>
 			<div>
 				<pre class="language-console"><code>{#each data.console as logEntry}<span
 					class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>

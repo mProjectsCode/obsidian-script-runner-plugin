@@ -1,4 +1,4 @@
-import {AbstractCodeMdRenderChild, Language, PseudoConsole} from './AbstractCodeMdRenderChild';
+import {AbstractCodeMdRenderChild, Language, LogLevel, PseudoConsole} from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import {MarkdownPostProcessorContext} from 'obsidian';
 import {ChildProcess, spawn} from 'child_process';
@@ -6,6 +6,8 @@ import {getActiveFile, getVaultBasePath} from '../utils/Utils';
 import * as path from 'path';
 
 export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
+	process: ChildProcess;
+
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
 		super(containerEl, plugin, fullDeclaration);
 
@@ -31,14 +33,14 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 		const command = `py -u "${absoluteFilePath}"`;
 		console.log(command);
-		const process: ChildProcess = spawn('py', ['-u', absoluteFilePath], {
+		this.process = spawn('py', ['-u', absoluteFilePath], {
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
 
 		this.data.running = true;
 		this.component.update();
 
-		process.stdout?.on('data', (data) => {
+		this.process.stdout?.on('data', (data) => {
 			data = data.toString();
 			console.log('data', data);
 			pseudoConsole.log(data);
@@ -46,7 +48,7 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			this.component.updateConsole();
 		});
 
-		process.stderr?.on('data', (data) => {
+		this.process.stderr?.on('data', (data) => {
 			data = data.toString();
 			console.log('err', data);
 			pseudoConsole.error(data);
@@ -54,7 +56,7 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			this.component.updateConsole();
 		});
 
-		process.on('exit', (code) => {
+		this.process.on('exit', (code) => {
 			console.log('exit', code);
 			pseudoConsole.log(`\nprocess exited with code ${code}`);
 			this.data.console = pseudoConsole.out;
@@ -67,4 +69,12 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			this.plugin.app.vault.delete(tFile);
 		});
 	}
+
+	public async sendToStdin(data: string): Promise<void> {
+		data = `${data}\n`
+		this.process.stdin?.write(data, (error) => console.log(error));
+		this.data.console.push({level: LogLevel.TRACE, message: data})
+	}
+
+
 }

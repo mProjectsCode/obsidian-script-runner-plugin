@@ -20,6 +20,7 @@ export interface CodeMdRenderChildData {
 	idError: string | undefined;
 	content: string;
 	console: LogEntry[];
+	input: string;
 	running: boolean;
 	language: Language;
 }
@@ -108,6 +109,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 			idError: undefined,
 			content: fullDeclaration,
 			console: [],
+			input: '',
 			running: false,
 			language: Language.UNDEFINED,
 		};
@@ -180,6 +182,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 	}
 
 	abstract run(): Promise<void>;
+	abstract sendToStdin(data: string): Promise<void>;
 
 	public onload(): void {
 		this.component = new CodeMdRenderChildComponent({
@@ -187,6 +190,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 			props: {
 				data: this.data,
 				idCommentPlaceholder: this.getIdCommentPlaceholder(),
+				sendToStdin: this.sendToStdin.bind(this),
 				run: this.run.bind(this),
 			},
 		});
