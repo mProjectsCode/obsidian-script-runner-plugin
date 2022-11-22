@@ -1,4 +1,4 @@
-import {AbstractCodeMdRenderChild, Language, LogLevel, PseudoConsole} from './AbstractCodeMdRenderChild';
+import {AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole} from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import {MarkdownPostProcessorContext} from 'obsidian';
 
@@ -15,28 +15,53 @@ export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		return '//';
 	}
 
-	public async run(): Promise<void> {
+	public async runProcess(): Promise<void> {
 		console.log(`OSR | running script of code block ${this.data.id}`);
 		try {
-			this.data.console = [];
+			this.clearConsole();
+			let pseudoConsole = new PseudoConsole();
+			pseudoConsole.onLog((logEntry: LogEntry) => {
+				logEntry.message += '\n';
+				this.data.console.push(logEntry);
+				this.component.updateConsole();
+			});
+
+			this.data.running = true;
+			this.component.update();
 
 			let content = this.data.content;
 			if (content.contains('await')) {
-				content = '(async () => { ' + content + ' })()';
+				const AsyncFunction = (async function () {}).constructor;
+				let func = AsyncFunction('console', content);
+				await Promise.resolve(func(pseudoConsole));
+			} else {
+				let func = Function('console', content);
+				func(pseudoConsole)
 			}
-			let func = new Function('console', content);
 
-			let pseudoConsole = new PseudoConsole();
-			await Promise.resolve(func(pseudoConsole));
+			this.data.running = false;
+			this.component.update();
 
-			this.data.console = pseudoConsole.out.map(x => {
-				x.message = `${x.message}\n`;
-				return x;
-			});
 			console.log(`OSR | script result of code block ${this.data.id}\n`, pseudoConsole.out);
 		} catch (e) {
 			console.warn(`OSR | error running script of code block ${this.data.id}`);
-			this.data.console = [{level: LogLevel.ERROR, message: e.message}];
+			this.data.console.push({ level: LogLevel.ERROR, message: e.message });
 		}
+	}
+
+	public canKillProcess(): boolean {
+		return false;
+	}
+
+	public async killProcess(reason?: Error|string): Promise<boolean> {
+		throw Error('Killing this process is not supported');
+	}
+
+	public canSendToProcess(): boolean {
+		return false;
+	}
+
+	sendToProcess(data: string): Promise<void> {
+		throw Error('Sending data to this process is not supported');
 	}
 }

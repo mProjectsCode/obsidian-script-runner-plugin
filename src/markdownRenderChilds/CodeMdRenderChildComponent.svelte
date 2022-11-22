@@ -1,12 +1,20 @@
 <script lang="ts">
 	import {CodeMdRenderChildData, LogLevel} from './AbstractCodeMdRenderChild';
 	import {Button, SettingItem, TextInput} from 'obsidian-svelte';
-	import {getPlaceholderUUID} from '../utils/Utils';
+	import {getPlaceholderUUID, stripEmptyLinesAtBeginning} from '../utils/Utils';
+	import {onMount} from 'svelte';
 
 	export let data: CodeMdRenderChildData;
 	export let idCommentPlaceholder: string;
-	export let sendToStdin: (data: string) => Promise<void>;
-	export let run: () => Promise<void>;
+	export let sendToProcess: (data: string) => Promise<void>;
+	export let runProcess: () => Promise<void>;
+	export let killProcess: (reason?: Error|string) => Promise<boolean>;
+	export let canSendToProcess: boolean;
+	export let canKillProcess: boolean;
+
+	onMount(() => {
+		console.log(data);
+	});
 
 	export function update() {
 		data = data;
@@ -16,9 +24,23 @@
 		data.console = data.console;
 	}
 
-	function runCode() {
-		run();
+	function tryRunProcess() {
+		runProcess();
 		data = data;
+	}
+
+	function tryKillProcess() {
+		if (canKillProcess) {
+			killProcess('User terminated Process');
+			data = data;
+		}
+	}
+
+	function trySendToProcess(d: string) {
+		if (canSendToProcess) {
+			sendToProcess(d);
+			data = data;
+		}
 	}
 
 	function getClassForLogLevel(level: LogLevel) {
@@ -35,24 +57,46 @@
 	function getCodeBlockLang() {
 		return `language-${data.language}`;
 	}
+
+	function getCodeBlockContent() {
+		if (!data.id) {
+			return data.content;
+		}
+
+		let lines: string[] = data.content.split('\n');
+		// remove id comment
+		lines = lines.slice(1);
+		lines = stripEmptyLinesAtBeginning(lines);
+		return lines.join('\n');
+	}
 </script>
 
 <div class="card" style="background: var(--background-secondary)">
 	<h3>Script Runner</h3>
 	<div>
-		<pre class={getCodeBlockLang()} tabindex=0><code class={getCodeBlockLang()}>{data.content}</code></pre>
+		<pre class={getCodeBlockLang()} tabindex=0><code class={getCodeBlockLang()}>{getCodeBlockContent()}</code></pre>
 	</div>
 	{#if data.id }
 		<div class="script-runner-settings-group">
 			<SettingItem
 				name="Run"
 				description="Run your script">
-				<Button on:click={runCode}>{data.running ? 'Running...' : 'Run'}</Button>
+				{#if data.running}
+					{#if canKillProcess}
+						<Button on:click={tryKillProcess} variant="destructive">Terminate</Button>
+					{:else}
+						<Button>Running...</Button>
+					{/if}
+				{:else}
+					<Button on:click={tryRunProcess}>Run</Button>
+				{/if}
 			</SettingItem>
-			<div class="script-runner-row-flex">
-				<TextInput class="script-runner-expand" bind:value={data.input}></TextInput>
-				<Button on:click={sendToStdin(data.input)}>Input</Button>
-			</div>
+			{#if canSendToProcess}
+				<div class="script-runner-row-flex">
+					<TextInput class="script-runner-expand" bind:value={data.input}></TextInput>
+					<Button on:click={sendToProcess(data.input)}>Input</Button>
+				</div>
+			{/if}
 			<div>
 				<pre class="language-console"><code>{#each data.console as logEntry}<span
 					class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>

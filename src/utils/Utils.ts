@@ -42,3 +42,30 @@ export function getActiveFile(): TFile {
 	// @ts-ignore undocumented but works
 	return app.workspace.getActiveFile();
 }
+
+
+export function finLastIndex<T>(array: T[], callback: (element: T, index: number, array: T[]) => {}): number {
+	for (let i = array.length - 1; i >= 0; i--) {
+		if (callback(array[i], i, array)) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+export function stripEmptyLinesAtBeginning(lines: string[]) {
+	const newLines: string[] = [];
+
+	let inEmptyLinesAtStart = true;
+	for (let i = 0; i < lines.length; i++) {
+		if (inEmptyLinesAtStart && lines[i]) {
+			inEmptyLinesAtStart = false;
+		}
+
+		if (!inEmptyLinesAtStart) {
+			newLines.push(lines[i]);
+		}
+	}
+
+	return newLines;
+}

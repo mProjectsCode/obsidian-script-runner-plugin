@@ -35,13 +35,18 @@ export enum Language {
 
 export class PseudoConsole {
 	out: LogEntry[];
+	onLogCallback: (LogEntry: LogEntry) => void = () => {};
 
 	constructor() {
 		this.out = [];
 	}
 
+	onLog(callback: (LogEntry: LogEntry) => void) {
+		this.onLogCallback = callback;
+	}
+
 	debug(...obj: any[]) {
-		this.out.push({
+		const logEntry: LogEntry = {
 			level: LogLevel.TRACE,
 			message: obj.map(x => {
 				if (typeof x === 'string') {
@@ -50,11 +55,14 @@ export class PseudoConsole {
 					return JSON.stringify(x, null, 4);
 				}
 			}).join(' '),
-		});
+		};
+
+		this.onLogCallback(logEntry)
+		this.out.push(logEntry);
 	}
 
 	log(...obj: any[]) {
-		this.out.push({
+		const logEntry: LogEntry = {
 			level: LogLevel.INFO,
 			message: obj.map(x => {
 				if (typeof x === 'string') {
@@ -63,11 +71,14 @@ export class PseudoConsole {
 					return JSON.stringify(x, null, 4);
 				}
 			}).join(' '),
-		});
+		};
+
+		this.onLogCallback(logEntry)
+		this.out.push(logEntry);
 	}
 
 	warn(...obj: any[]) {
-		this.out.push({
+		const logEntry: LogEntry = {
 			level: LogLevel.WARN,
 			message: obj.map(x => {
 				if (typeof x === 'string') {
@@ -76,11 +87,14 @@ export class PseudoConsole {
 					return JSON.stringify(x, null, 4);
 				}
 			}).join(' '),
-		});
+		};
+
+		this.onLogCallback(logEntry)
+		this.out.push(logEntry);
 	}
 
 	error(...obj: any[]) {
-		this.out.push({
+		const logEntry: LogEntry = {
 			level: LogLevel.ERROR,
 			message: obj.map(x => {
 				if (typeof x === 'string') {
@@ -89,7 +103,10 @@ export class PseudoConsole {
 					return JSON.stringify(x, null, 4);
 				}
 			}).join(' '),
-		});
+		};
+
+		this.onLogCallback(logEntry)
+		this.out.push(logEntry);
 	}
 }
 
@@ -181,8 +198,16 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 		this.data.language = language;
 	}
 
-	abstract run(): Promise<void>;
-	abstract sendToStdin(data: string): Promise<void>;
+	clearConsole() {
+		this.data.console = [];
+	}
+
+	abstract runProcess(): Promise<void>;
+	abstract killProcess(reason: Error|string): Promise<boolean>;
+	abstract sendToProcess(data: string): Promise<void>;
+
+	abstract canSendToProcess(): boolean;
+	abstract canKillProcess(): boolean;
 
 	public onload(): void {
 		this.component = new CodeMdRenderChildComponent({
@@ -190,8 +215,11 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 			props: {
 				data: this.data,
 				idCommentPlaceholder: this.getIdCommentPlaceholder(),
-				sendToStdin: this.sendToStdin.bind(this),
-				run: this.run.bind(this),
+				sendToProcess: this.sendToProcess.bind(this),
+				runProcess: this.runProcess.bind(this),
+				killProcess: this.killProcess.bind(this),
+				canSendToProcess: this.canSendToProcess(),
+				canKillProcess: this.canKillProcess(),
 			},
 		});
 	}
