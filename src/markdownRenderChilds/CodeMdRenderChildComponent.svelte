@@ -8,7 +8,7 @@
 	export let idCommentPlaceholder: string;
 	export let sendToProcess: (data: string) => Promise<void>;
 	export let runProcess: () => Promise<void>;
-	export let killProcess: (reason?: Error|string) => Promise<boolean>;
+	export let killProcess: (reason?: Error | string) => Promise<boolean>;
 	export let canSendToProcess: boolean;
 	export let canKillProcess: boolean;
 

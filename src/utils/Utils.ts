@@ -1,5 +1,5 @@
 import * as Crypto from 'crypto';
-import {TFile} from 'obsidian';
+import { TFile } from 'obsidian';
 
 export function isTruthy(value: any): boolean {
 	return !!value;
@@ -42,7 +42,6 @@ export function getActiveFile(): TFile {
 	// @ts-ignore undocumented but works
 	return app.workspace.getActiveFile();
 }
-
 
 export function finLastIndex<T>(array: T[], callback: (element: T, index: number, array: T[]) => {}): number {
 	for (let i = array.length - 1; i >= 0; i--) {

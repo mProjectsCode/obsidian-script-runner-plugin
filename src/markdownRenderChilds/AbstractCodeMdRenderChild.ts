@@ -1,7 +1,7 @@
-import {MarkdownRenderChild} from 'obsidian';
+import { MarkdownRenderChild } from 'obsidian';
 import ScriptRunnerPlugin from '../main';
 import CodeMdRenderChildComponent from './CodeMdRenderChildComponent.svelte';
-import {getPlaceholderUUID} from '../utils/Utils';
+import { getPlaceholderUUID } from '../utils/Utils';
 
 export enum LogLevel {
 	TRACE,
@@ -11,8 +11,8 @@ export enum LogLevel {
 }
 
 export interface LogEntry {
-	level: LogLevel,
-	message: string,
+	level: LogLevel;
+	message: string;
 }
 
 export interface CodeMdRenderChildData {
@@ -29,6 +29,7 @@ export enum Language {
 	JS = 'js',
 	PYTHON = 'python',
 	CMD = 'bash',
+	OCTAVE = 'octave',
 
 	UNDEFINED = 'undefined',
 }
@@ -48,64 +49,72 @@ export class PseudoConsole {
 	debug(...obj: any[]) {
 		const logEntry: LogEntry = {
 			level: LogLevel.TRACE,
-			message: obj.map(x => {
-				if (typeof x === 'string') {
-					return x;
-				} else {
-					return JSON.stringify(x, null, 4);
-				}
-			}).join(' '),
+			message: obj
+				.map(x => {
+					if (typeof x === 'string') {
+						return x;
+					} else {
+						return JSON.stringify(x, null, 4);
+					}
+				})
+				.join(' '),
 		};
 
-		this.onLogCallback(logEntry)
+		this.onLogCallback(logEntry);
 		this.out.push(logEntry);
 	}
 
 	log(...obj: any[]) {
 		const logEntry: LogEntry = {
 			level: LogLevel.INFO,
-			message: obj.map(x => {
-				if (typeof x === 'string') {
-					return x;
-				} else {
-					return JSON.stringify(x, null, 4);
-				}
-			}).join(' '),
+			message: obj
+				.map(x => {
+					if (typeof x === 'string') {
+						return x;
+					} else {
+						return JSON.stringify(x, null, 4);
+					}
+				})
+				.join(' '),
 		};
 
-		this.onLogCallback(logEntry)
+		this.onLogCallback(logEntry);
 		this.out.push(logEntry);
 	}
 
 	warn(...obj: any[]) {
 		const logEntry: LogEntry = {
 			level: LogLevel.WARN,
-			message: obj.map(x => {
-				if (typeof x === 'string') {
-					return x;
-				} else {
-					return JSON.stringify(x, null, 4);
-				}
-			}).join(' '),
+			message: obj
+				.map(x => {
+					if (typeof x === 'string') {
+						return x;
+					} else {
+						return JSON.stringify(x, null, 4);
+					}
+				})
+				.join(' '),
 		};
 
-		this.onLogCallback(logEntry)
+		this.onLogCallback(logEntry);
 		this.out.push(logEntry);
 	}
 
 	error(...obj: any[]) {
 		const logEntry: LogEntry = {
 			level: LogLevel.ERROR,
-			message: obj.map(x => {
-				if (typeof x === 'string') {
-					return x;
-				} else {
-					return JSON.stringify(x, null, 4);
-				}
-			}).join(' '),
+			message: obj
+				.map(x => {
+					if (typeof x === 'string') {
+						return x;
+					} else {
+						return JSON.stringify(x, null, 4);
+					}
+				})
+				.join(' '),
 		};
 
-		this.onLogCallback(logEntry)
+		this.onLogCallback(logEntry);
 		this.out.push(logEntry);
 	}
 }
@@ -203,10 +212,13 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 	}
 
 	abstract runProcess(): Promise<void>;
-	abstract killProcess(reason: Error|string): Promise<boolean>;
+
+	abstract killProcess(reason: Error | string): Promise<boolean>;
+
 	abstract sendToProcess(data: string): Promise<void>;
 
 	abstract canSendToProcess(): boolean;
+
 	abstract canKillProcess(): boolean;
 
 	public onload(): void {

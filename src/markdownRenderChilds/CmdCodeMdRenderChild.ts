@@ -1,11 +1,11 @@
-import {AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole} from './AbstractCodeMdRenderChild';
+import { AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
-import {MarkdownPostProcessorContext} from 'obsidian';
-import {ChildProcess, exec} from 'child_process';
-import {isTruthy} from '../utils/Utils';
+import { MarkdownPostProcessorContext } from 'obsidian';
+import { ChildProcess, exec } from 'child_process';
+import { isTruthy } from '../utils/Utils';
 
 export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
-	process: ChildProcess|undefined;
+	process: ChildProcess | undefined;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
 		super(containerEl, plugin, fullDeclaration);
@@ -26,7 +26,7 @@ export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		pseudoConsole.onLog((logEntry: LogEntry) => {
 			this.data.console.push(logEntry);
 			this.component.updateConsole();
-		})
+		});
 
 		const lines = this.data.content.split('\n').filter(x => isTruthy(x));
 		if (lines.length !== 2) {
@@ -41,19 +41,19 @@ export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		this.data.running = true;
 		this.component.update();
 
-		this.process.stdout?.on('data', (data) => {
+		this.process.stdout?.on('data', data => {
 			data = data.toString();
 			console.log('data', data);
 			pseudoConsole.log(data);
 		});
 
-		this.process.stderr?.on('data', (data) => {
+		this.process.stderr?.on('data', data => {
 			data = data.toString();
 			console.log('err', data);
 			pseudoConsole.error(data);
 		});
 
-		this.process.on('exit', (code) => {
+		this.process.on('exit', code => {
 			console.log('exit', code);
 			pseudoConsole.log(`\nprocess exited with code ${code}`);
 
@@ -68,7 +68,7 @@ export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		return true;
 	}
 
-	async killProcess(reason: Error|string): Promise<boolean> {
+	async killProcess(reason: Error | string): Promise<boolean> {
 		if (!this.process) {
 			this.data.console.push({
 				level: LogLevel.ERROR,

@@ -1,9 +1,8 @@
-import {AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole} from './AbstractCodeMdRenderChild';
+import { AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
-import {MarkdownPostProcessorContext} from 'obsidian';
+import { MarkdownPostProcessorContext } from 'obsidian';
 
 export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
-
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
 		super(containerEl, plugin, fullDeclaration);
 
@@ -31,12 +30,12 @@ export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 			let content = this.data.content;
 			if (content.contains('await')) {
-				const AsyncFunction = (async function () {}).constructor;
+				const AsyncFunction = async function () {}.constructor;
 				let func = AsyncFunction('console', content);
 				await Promise.resolve(func(pseudoConsole));
 			} else {
 				let func = Function('console', content);
-				func(pseudoConsole)
+				func(pseudoConsole);
 			}
 
 			this.data.running = false;
@@ -53,7 +52,7 @@ export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		return false;
 	}
 
-	public async killProcess(reason?: Error|string): Promise<boolean> {
+	public async killProcess(reason?: Error | string): Promise<boolean> {
 		throw Error('Killing this process is not supported');
 	}
 

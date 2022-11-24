@@ -1,22 +1,22 @@
 import { AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import { MarkdownPostProcessorContext } from 'obsidian';
-import { ChildProcess, spawn } from 'child_process';
+import { ChildProcess, exec } from 'child_process';
 import { getActiveFile, getVaultBasePath } from '../utils/Utils';
 import * as path from 'path';
 
-export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
+export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process?: ChildProcess;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
 		super(containerEl, plugin, fullDeclaration);
 
-		this.setLanguage(Language.PYTHON);
+		this.setLanguage(Language.OCTAVE);
 		this.parseId();
 	}
 
 	getCommentString(): string {
-		return '#';
+		return '%';
 	}
 
 	public async runProcess(): Promise<void> {
@@ -29,15 +29,14 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			this.component.updateConsole();
 		});
 
-		const filePath: string = path.join(getActiveFile().parent.path, `${this.data.id}.py`);
+		const fileName: string = `o${this.data.id?.replaceAll('-', '_')}`;
+		const filePath: string = path.join(getActiveFile().parent.path, `${fileName}.m`);
 		const absoluteFilePath: string = path.join(getVaultBasePath(), filePath);
 
 		console.log('creating file', filePath);
 		const tFile = await this.plugin.app.vault.create(filePath, this.data.content);
 
-		this.process = spawn('py', ['-u', absoluteFilePath], {
-			stdio: ['pipe', 'pipe', 'pipe'],
-		});
+		this.process = exec(`octave --path ${path.join(getVaultBasePath(), getActiveFile().parent.path)}`);
 
 		this.data.running = true;
 		this.component.update();
@@ -65,6 +64,8 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			this.plugin.app.vault.delete(tFile);
 			this.process = undefined;
 		});
+
+		this.sendToProcess(fileName);
 	}
 
 	public canKillProcess(): boolean {
@@ -109,7 +110,11 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		}
 
 		data = `${data}\n`;
-		this.process.stdin?.write(data, error => console.log(error));
+		this.process.stdin?.write(data, error => {
+			if (error) {
+				console.log(error);
+			}
+		});
 		this.data.console.push({ level: LogLevel.TRACE, message: data });
 	}
 }

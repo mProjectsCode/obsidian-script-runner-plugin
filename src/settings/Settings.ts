@@ -1,6 +1,6 @@
-import {App, PluginSettingTab} from 'obsidian';
+import { App, PluginSettingTab } from 'obsidian';
 import ScriptRunnerPlugin from '../main';
-import {CodeMdRenderChildData} from '../markdownRenderChilds/AbstractCodeMdRenderChild';
+import { CodeMdRenderChildData } from '../markdownRenderChilds/AbstractCodeMdRenderChild';
 
 export interface ScriptRunnerPluginSettings {
 	codeMdRenderChildData: CodeMdRenderChildData[];
@@ -19,7 +19,7 @@ export class ScriptRunnerSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 	}
