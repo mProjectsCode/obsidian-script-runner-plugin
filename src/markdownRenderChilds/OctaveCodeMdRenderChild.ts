@@ -1,7 +1,7 @@
 import { AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import { MarkdownPostProcessorContext } from 'obsidian';
-import { ChildProcess, exec } from 'child_process';
+import {ChildProcess, exec, spawn} from 'child_process';
 import { getActiveFile, getVaultBasePath } from '../utils/Utils';
 import * as path from 'path';
 
@@ -36,7 +36,10 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		console.log('creating file', filePath);
 		const tFile = await this.plugin.app.vault.create(filePath, this.data.content);
 
-		this.process = exec(`octave --path ${path.join(getVaultBasePath(), getActiveFile().parent.path)}`);
+		this.process = spawn('octave', ['--persist', absoluteFilePath], {
+			shell: true,
+			detached: true,
+		});
 
 		this.data.running = true;
 		this.component.update();
@@ -64,57 +67,21 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			this.plugin.app.vault.delete(tFile);
 			this.process = undefined;
 		});
-
-		this.sendToProcess(fileName);
 	}
 
 	public canKillProcess(): boolean {
-		return true;
+		return false;
 	}
 
 	public async killProcess(reason?: Error | string): Promise<boolean> {
-		if (!this.process) {
-			this.data.console.push({
-				level: LogLevel.ERROR,
-				message: `Can not terminate process, no process running.`,
-			});
-			return false;
-		}
-
-		if (reason) {
-			if (reason instanceof Error) {
-				this.data.console.push({
-					level: LogLevel.ERROR,
-					message: `Process was terminated because of error:\n${reason.message}`,
-				});
-			} else {
-				this.data.console.push({
-					level: LogLevel.ERROR,
-					message: `Process was terminated because of:\n${reason}`,
-				});
-			}
-		}
-
-		this.process?.kill('SIGINT');
-		this.process = undefined;
-		return true;
+		throw Error('Killing this process is not supported');
 	}
 
 	public canSendToProcess(): boolean {
-		return true;
+		return false;
 	}
 
 	public async sendToProcess(data: string): Promise<void> {
-		if (!this.process) {
-			throw new Error('Can not send data to process, no process running');
-		}
-
-		data = `${data}\n`;
-		this.process.stdin?.write(data, error => {
-			if (error) {
-				console.log(error);
-			}
-		});
-		this.data.console.push({ level: LogLevel.TRACE, message: data });
+		throw Error('Sending data to this process is not supported');
 	}
 }

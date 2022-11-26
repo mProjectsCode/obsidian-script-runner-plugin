@@ -29,7 +29,7 @@ export enum Language {
 	JS = 'js',
 	PYTHON = 'python',
 	CMD = 'bash',
-	OCTAVE = 'octave',
+	OCTAVE = 'matlab',
 
 	UNDEFINED = 'undefined',
 }
