@@ -1,4 +1,4 @@
-import { AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole } from './AbstractCodeMdRenderChild';
+import { AbstractCodeMdRenderChild, Language } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import { MarkdownPostProcessorContext } from 'obsidian';
 import { ChildProcess, spawn } from 'child_process';
@@ -9,10 +9,7 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process?: ChildProcess;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
-		super(containerEl, plugin, fullDeclaration);
-
-		this.setLanguage(Language.PYTHON);
-		this.parseId();
+		super(containerEl, plugin, fullDeclaration, Language.PYTHON);
 	}
 
 	getCommentString(): string {
@@ -23,11 +20,6 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		console.log(`OSR | running script of code block ${this.data.id}`);
 
 		this.clearConsole();
-		const pseudoConsole = new PseudoConsole();
-		pseudoConsole.onLog((logEntry: LogEntry) => {
-			this.data.console.push(logEntry);
-			this.component.updateConsole();
-		});
 
 		const filePath: string = path.join(getActiveFile().parent.path, `${this.data.id}.py`);
 		const absoluteFilePath: string = path.join(getVaultBasePath(), filePath);
@@ -39,28 +31,18 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			stdio: ['pipe', 'pipe', 'pipe'],
 		});
 
-		this.data.running = true;
-		this.component.update();
+		this.onProcessStart();
 
 		this.process.stdout?.on('data', data => {
-			data = data.toString();
-			console.log('data', data);
-			pseudoConsole.log(data);
+			this.onProcessInfo(data.toString());
 		});
 
 		this.process.stderr?.on('data', data => {
-			data = data.toString();
-			console.log('err', data);
-			pseudoConsole.error(data);
+			this.onProcessError(data.toString());
 		});
 
 		this.process.on('exit', code => {
-			console.log('exit', code);
-			pseudoConsole.log(`\nprocess exited with code ${code}`);
-
-			this.data.running = false;
-			this.component.update();
-
+			this.onProcessEnd(code);
 			console.log('deleting file', filePath);
 			this.plugin.app.vault.delete(tFile);
 			this.process = undefined;
@@ -71,26 +53,17 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		return true;
 	}
 
-	public async killProcess(reason?: Error | string): Promise<boolean> {
+	async killProcess(reason: Error | string): Promise<boolean> {
 		if (!this.process) {
-			this.data.console.push({
-				level: LogLevel.ERROR,
-				message: `Can not terminate process, no process running.`,
-			});
+			this.onProcessError(`Can not terminate process, no process running.`);
 			return false;
 		}
 
 		if (reason) {
 			if (reason instanceof Error) {
-				this.data.console.push({
-					level: LogLevel.ERROR,
-					message: `Process was terminated because of error:\n${reason.message}`,
-				});
+				this.onProcessError(`Process was terminated because of error:\n${reason.message}`);
 			} else {
-				this.data.console.push({
-					level: LogLevel.ERROR,
-					message: `Process was terminated because of:\n${reason}`,
-				});
+				this.onProcessError(`Process was terminated because of:\n${reason}`);
 			}
 		}
 
@@ -109,7 +82,11 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		}
 
 		data = `${data}\n`;
-		this.process.stdin?.write(data, error => console.log(error));
-		this.data.console.push({ level: LogLevel.TRACE, message: data });
+		this.process.stdin?.write(data, (error: Error) => {
+			if (error) {
+				this.onProcessError(error.message);
+			}
+		});
+		this.onProcessTrace(data);
 	}
 }

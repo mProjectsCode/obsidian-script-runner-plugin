@@ -1,13 +1,11 @@
-import { AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole } from './AbstractCodeMdRenderChild';
+import { AbstractCodeMdRenderChild, Language } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
-import { MarkdownPostProcessorContext } from 'obsidian';
+import { MarkdownPostProcessorContext, TFile } from 'obsidian';
+import { DataviewApi, getAPI } from 'obsidian-dataview';
 
 export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
-		super(containerEl, plugin, fullDeclaration);
-
-		this.setLanguage(Language.JS);
-		this.parseId();
+		super(containerEl, plugin, fullDeclaration, Language.JS);
 	}
 
 	getCommentString(): string {
@@ -18,33 +16,23 @@ export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		console.log(`OSR | running script of code block ${this.data.id}`);
 		try {
 			this.clearConsole();
-			let pseudoConsole = new PseudoConsole();
-			pseudoConsole.onLog((logEntry: LogEntry) => {
-				logEntry.message += '\n';
-				this.data.console.push(logEntry);
-				this.component.updateConsole();
-			});
+			const pseudoConsole = this.createPseudoConsole(true);
 
-			this.data.running = true;
-			this.component.update();
+			this.onProcessStart();
 
-			let content = this.data.content;
-			if (content.contains('await')) {
-				const AsyncFunction = async function () {}.constructor;
-				let func = AsyncFunction('console', content);
-				await Promise.resolve(func(pseudoConsole));
-			} else {
-				let func = Function('console', content);
-				func(pseudoConsole);
-			}
+			const content = this.data.content;
+			const isAsync = content.contains('await');
+			const funcConstructor = isAsync ? async function (): Promise<void> {}.constructor : Function;
 
-			this.data.running = false;
-			this.component.update();
+			const func: any = funcConstructor('console', 'app', 'dv', 'file', content);
 
-			console.log(`OSR | script result of code block ${this.data.id}\n`, pseudoConsole.out);
+			const dv: DataviewApi | undefined = getAPI(this.plugin.app);
+			const tFile: TFile = this.plugin.app.vault.getAbstractFileByPath(this.file) as TFile;
+			await Promise.resolve(func(pseudoConsole, this.plugin.app, dv, tFile));
+
+			this.onProcessEnd(undefined);
 		} catch (e) {
-			console.warn(`OSR | error running script of code block ${this.data.id}`);
-			this.data.console.push({ level: LogLevel.ERROR, message: e.message });
+			this.onProcessError(e instanceof Error ? e.message : e);
 		}
 	}
 
@@ -60,7 +48,7 @@ export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		return false;
 	}
 
-	sendToProcess(data: string): Promise<void> {
+	public async sendToProcess(data: string): Promise<void> {
 		throw Error('Sending data to this process is not supported');
 	}
 }

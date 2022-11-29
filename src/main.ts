@@ -1,17 +1,18 @@
-import { Editor, MarkdownView, Plugin } from 'obsidian';
+import { Editor, loadPrism, MarkdownView, Plugin } from 'obsidian';
 import { DEFAULT_SETTINGS, ScriptRunnerPluginSettings, ScriptRunnerSettingTab } from './settings/Settings';
 import { JsCodeMdRenderChild } from './markdownRenderChilds/JsCodeMdRenderChild';
 import { getUUID } from './utils/Utils';
 import { PyCodeMdRenderChild } from './markdownRenderChilds/PyCodeMdRenderChild';
 import { CmdCodeMdRenderChild } from './markdownRenderChilds/CmdCodeMdRenderChild';
 import { OctaveCodeMdRenderChild } from './markdownRenderChilds/OctaveCodeMdRenderChild';
+import { filterHighlightAllPlugin } from './utils/prismPlugins';
 
 // Remember to rename these classes and interfaces!
 
 export default class ScriptRunnerPlugin extends Plugin {
 	settings: ScriptRunnerPluginSettings;
 
-	async onload() {
+	async onload(): Promise<void> {
 		await this.loadSettings();
 
 		// This adds an editor command that can perform some operation on the current editor instance
@@ -48,6 +49,10 @@ export default class ScriptRunnerPlugin extends Plugin {
 		//
 		// this.registerEditorExtension(this.lang());
 
+		const prism = await loadPrism();
+		filterHighlightAllPlugin(prism);
+		prism.plugins.filterHighlightAll.reject.addSelector('code.no-highlight');
+
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new ScriptRunnerSettingTab(this.app, this));
 	}
@@ -62,13 +67,13 @@ export default class ScriptRunnerPlugin extends Plugin {
 	// 	});
 	// }
 
-	onunload() {}
+	onunload(): void {}
 
-	async loadSettings() {
+	async loadSettings(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
-	async saveSettings() {
+	async saveSettings(): Promise<void> {
 		await this.saveData(this.settings);
 	}
 }

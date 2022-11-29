@@ -19,10 +19,26 @@ export interface CodeMdRenderChildData {
 	id: string | undefined;
 	idError: string | undefined;
 	content: string;
-	console: LogEntry[];
 	input: string;
 	running: boolean;
+	hasRun: boolean;
 	language: Language;
+	saveData: CodeMdRenderChildSaveData;
+}
+
+export interface CodeMdRenderChildSaveData {
+	id: string | undefined;
+	console: LogEntry[];
+	executionPath?: {
+		mode: PathMode;
+		path: string;
+	};
+}
+
+export enum PathMode {
+	RELATIVE = 'relative',
+	VAULT_RELATIVE = 'vault_relative',
+	ABSOLUTE = 'absolute',
 }
 
 export enum Language {
@@ -35,87 +51,117 @@ export enum Language {
 }
 
 export class PseudoConsole {
-	out: LogEntry[];
-	onLogCallback: (LogEntry: LogEntry) => void = () => {};
+	onLogCallback: (LogEntry: LogEntry) => void = (): void => {};
 
-	constructor() {
-		this.out = [];
+	onTraceCallback: (LogEntry: LogEntry) => void = (): void => {};
+	onInfoCallback: (LogEntry: LogEntry) => void = (): void => {};
+	onWarnCallback: (LogEntry: LogEntry) => void = (): void => {};
+	onErrorCallback: (LogEntry: LogEntry) => void = (): void => {};
+
+	addNewline: boolean;
+
+	constructor(addNewline: boolean) {
+		this.addNewline = addNewline;
 	}
 
-	onLog(callback: (LogEntry: LogEntry) => void) {
+	onLog(callback: (LogEntry: LogEntry) => void): void {
 		this.onLogCallback = callback;
 	}
 
-	debug(...obj: any[]) {
+	onTrace(callback: (LogEntry: LogEntry) => void): void {
+		this.onTraceCallback = callback;
+	}
+
+	onInfo(callback: (LogEntry: LogEntry) => void): void {
+		this.onInfoCallback = callback;
+	}
+
+	onWarn(callback: (LogEntry: LogEntry) => void): void {
+		this.onWarnCallback = callback;
+	}
+
+	onError(callback: (LogEntry: LogEntry) => void): void {
+		this.onErrorCallback = callback;
+	}
+
+	debug(...obj: any[]): void {
 		const logEntry: LogEntry = {
 			level: LogLevel.TRACE,
-			message: obj
-				.map(x => {
-					if (typeof x === 'string') {
-						return x;
-					} else {
-						return JSON.stringify(x, null, 4);
-					}
-				})
-				.join(' '),
+			message:
+				obj
+					.map(x => {
+						if (typeof x === 'string') {
+							return x;
+						} else {
+							return JSON.stringify(x, null, 4);
+						}
+					})
+					.join(' ') + (this.addNewline ? '\n' : ''),
 		};
 
 		this.onLogCallback(logEntry);
-		this.out.push(logEntry);
+		this.onTraceCallback(logEntry);
 	}
 
-	log(...obj: any[]) {
+	log(...obj: any[]): void {
 		const logEntry: LogEntry = {
 			level: LogLevel.INFO,
-			message: obj
-				.map(x => {
-					if (typeof x === 'string') {
-						return x;
-					} else {
-						return JSON.stringify(x, null, 4);
-					}
-				})
-				.join(' '),
+			message:
+				obj
+					.map(x => {
+						if (typeof x === 'string') {
+							return x;
+						} else {
+							return JSON.stringify(x, null, 4);
+						}
+					})
+					.join(' ') + (this.addNewline ? '\n' : ''),
 		};
 
 		this.onLogCallback(logEntry);
-		this.out.push(logEntry);
+		this.onInfoCallback(logEntry);
 	}
 
-	warn(...obj: any[]) {
+	info(...obj: any[]): void {
+		this.log(...obj);
+	}
+
+	warn(...obj: any[]): void {
 		const logEntry: LogEntry = {
 			level: LogLevel.WARN,
-			message: obj
-				.map(x => {
-					if (typeof x === 'string') {
-						return x;
-					} else {
-						return JSON.stringify(x, null, 4);
-					}
-				})
-				.join(' '),
+			message:
+				obj
+					.map(x => {
+						if (typeof x === 'string') {
+							return x;
+						} else {
+							return JSON.stringify(x, null, 4);
+						}
+					})
+					.join(' ') + (this.addNewline ? '\n' : ''),
 		};
 
 		this.onLogCallback(logEntry);
-		this.out.push(logEntry);
+		this.onWarnCallback(logEntry);
 	}
 
-	error(...obj: any[]) {
+	error(...obj: any[]): void {
 		const logEntry: LogEntry = {
 			level: LogLevel.ERROR,
-			message: obj
-				.map(x => {
-					if (typeof x === 'string') {
-						return x;
-					} else {
-						return JSON.stringify(x, null, 4);
-					}
-				})
-				.join(' '),
+			message:
+				obj
+					.map(x => {
+						if (typeof x === 'string') {
+							return x;
+						} else {
+							return JSON.stringify(x, null, 4);
+						}
+					})
+					.join(' ') + (this.addNewline ? '\n' : ''),
 		};
 
 		this.onLogCallback(logEntry);
-		this.out.push(logEntry);
+		this.onErrorCallback(logEntry);
 	}
 }
 
@@ -126,7 +172,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 	component: CodeMdRenderChildComponent;
 	readonly idFieldName: string = 'script-id';
 
-	protected constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string) {
+	protected constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, language: Language) {
 		super(containerEl);
 		this.plugin = plugin;
 
@@ -134,11 +180,38 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 			id: undefined,
 			idError: undefined,
 			content: fullDeclaration,
-			console: [],
 			input: '',
 			running: false,
-			language: Language.UNDEFINED,
+			hasRun: false,
+			language: language,
+			saveData: {} as CodeMdRenderChildSaveData,
 		};
+
+		this.parseId();
+		this.loadData();
+	}
+
+	getDefaultCodeMdRenderChildSaveData(): CodeMdRenderChildSaveData {
+		return {
+			id: this.data.id,
+			console: [],
+			executionPath: {
+				mode: PathMode.RELATIVE,
+				path: '',
+			},
+		};
+	}
+
+	loadData(): void {
+		console.log(`OSR | loaded data for ${this.data.id}`);
+		this.data.saveData = this.plugin.settings.codeMdRenderChildSaveData.find(x => x.id === this.data.id) ?? this.getDefaultCodeMdRenderChildSaveData();
+	}
+
+	async saveData(): Promise<void> {
+		console.log(`OSR | saved data for ${this.data.id}`);
+		this.plugin.settings.codeMdRenderChildSaveData = this.plugin.settings.codeMdRenderChildSaveData.filter(x => x.id !== this.data.id);
+		this.plugin.settings.codeMdRenderChildSaveData.push(this.data.saveData);
+		await this.plugin.saveSettings();
 	}
 
 	abstract getCommentString(): string;
@@ -203,12 +276,87 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 		}
 	}
 
-	protected setLanguage(language: Language) {
+	protected setLanguage(language: Language): void {
 		this.data.language = language;
 	}
 
-	clearConsole() {
-		this.data.console = [];
+	clearConsole(): void {
+		this.data.saveData.console = [];
+	}
+
+	onProcessStart(): void {
+		this.data.running = true;
+		this.component.update();
+	}
+
+	createPseudoConsole(addNewline: boolean = false): PseudoConsole {
+		const pseudoConsole = new PseudoConsole(addNewline);
+		pseudoConsole.onTrace(this.onProcessTrace.bind(this));
+		pseudoConsole.onInfo(this.onProcessInfo.bind(this));
+		pseudoConsole.onWarn(this.onProcessWarn.bind(this));
+		pseudoConsole.onError(this.onProcessError.bind(this));
+
+		return pseudoConsole;
+	}
+
+	onProcessTrace(message: string | LogEntry): void {
+		if (typeof message == 'string') {
+			this.onProcessLog({
+				level: LogLevel.TRACE,
+				message: message,
+			});
+		} else {
+			this.onProcessLog(message);
+		}
+	}
+
+	onProcessInfo(message: string | LogEntry): void {
+		if (typeof message == 'string') {
+			this.onProcessLog({
+				level: LogLevel.INFO,
+				message: message,
+			});
+		} else {
+			this.onProcessLog(message);
+		}
+	}
+
+	onProcessWarn(message: string | LogEntry): void {
+		if (typeof message == 'string') {
+			this.onProcessLog({
+				level: LogLevel.WARN,
+				message: message,
+			});
+		} else {
+			this.onProcessLog(message);
+		}
+	}
+
+	onProcessError(message: string | LogEntry): void {
+		if (typeof message == 'string') {
+			this.onProcessLog({
+				level: LogLevel.ERROR,
+				message: message,
+			});
+		} else {
+			this.onProcessLog(message);
+		}
+	}
+
+	onProcessLog(logEntry: LogEntry): void {
+		console.debug(`OSR | process ${this.data.id} logged ${logEntry.level}`, logEntry.message);
+		this.data.saveData.console.push(logEntry);
+		this.component.updateConsole();
+	}
+
+	onProcessEnd(code: number | undefined | null): void {
+		if (code !== undefined) {
+			const data = `\n\nprocess exited with code ${code ?? 0}`;
+			this.onProcessTrace(data);
+		}
+		this.data.running = false;
+		this.saveData();
+		this.component.update();
 	}
 
 	abstract runProcess(): Promise<void>;
@@ -222,6 +370,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 	abstract canKillProcess(): boolean;
 
 	public onload(): void {
+		console.log(this.data);
 		this.component = new CodeMdRenderChildComponent({
 			target: this.containerEl,
 			props: {
@@ -232,6 +381,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 				killProcess: this.killProcess.bind(this),
 				canSendToProcess: this.canSendToProcess(),
 				canKillProcess: this.canKillProcess(),
+				save: this.saveData.bind(this),
 			},
 		});
 	}

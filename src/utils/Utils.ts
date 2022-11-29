@@ -15,13 +15,13 @@ export function equalOrIncludes(str1: string, str2: string): boolean {
 
 export class ScriptRunnerInternalError extends Error {
 	constructor(message: string) {
-		super(`[TTU_INTERNAL_ERROR - please report this error] ${message}`);
+		super(`[OSR_INTERNAL_ERROR - please report this error] ${message}`);
 	}
 }
 
 export class ScriptRunnerParsingError extends Error {
 	constructor(message: string) {
-		super(`[TTU_PARSING_ERROR] ${message}`);
+		super(`[OSR_PARSING_ERROR] ${message}`);
 	}
 }
 
@@ -43,7 +43,7 @@ export function getActiveFile(): TFile {
 	return app.workspace.getActiveFile();
 }
 
-export function finLastIndex<T>(array: T[], callback: (element: T, index: number, array: T[]) => {}): number {
+export function finLastIndex<T>(array: T[], callback: (element: T, index: number, array: T[]) => boolean): number {
 	for (let i = array.length - 1; i >= 0; i--) {
 		if (callback(array[i], i, array)) {
 			return i;
@@ -52,7 +52,7 @@ export function finLastIndex<T>(array: T[], callback: (element: T, index: number
 	return -1;
 }
 
-export function stripEmptyLinesAtBeginning(lines: string[]) {
+export function stripEmptyLinesAtBeginning(lines: string[]): string[] {
 	const newLines: string[] = [];
 
 	let inEmptyLinesAtStart = true;

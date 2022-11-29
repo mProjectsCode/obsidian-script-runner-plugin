@@ -11,6 +11,7 @@
 	export let killProcess: (reason?: Error | string) => Promise<boolean>;
 	export let canSendToProcess: boolean;
 	export let canKillProcess: boolean;
+	export let saveData: () => Promise<void>;
 
 	onMount(() => {
 		console.log(data);
@@ -21,7 +22,7 @@
 	}
 
 	export function updateConsole() {
-		data.console = data.console;
+		data.saveData.console = data.saveData.console;
 	}
 
 	function tryRunProcess() {
@@ -74,7 +75,7 @@
 <div class="card" style="background: var(--background-secondary)">
 	<h3>Script Runner</h3>
 	<div>
-		<pre class={getCodeBlockLang()} tabindex=0><code class={getCodeBlockLang()}>{getCodeBlockContent()}</code></pre>
+		<pre class={getCodeBlockLang()}><code class={getCodeBlockLang()}>{getCodeBlockContent()}</code></pre>
 	</div>
 	{#if data.id }
 		<div class="script-runner-settings-group">
@@ -93,13 +94,12 @@
 			</SettingItem>
 			{#if canSendToProcess}
 				<div class="script-runner-row-flex">
-					<TextInput class="script-runner-expand" bind:value={data.input}></TextInput>
-					<Button on:click={sendToProcess(data.input)}>Input</Button>
+					<TextInput bind:value={data.input}></TextInput>
+					<Button on:click={() => trySendToProcess(data.input)}>Input</Button>
 				</div>
 			{/if}
 			<div>
-				<pre class="language-console"><code>{#each data.console as logEntry}<span
-					class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
+				<pre class="no-highlight"><code>{#each data.saveData.console as logEntry}<span class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
 			</div>
 		</div>
 	{:else}

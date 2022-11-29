@@ -34,6 +34,7 @@ esbuild
 			'@lezer/highlight',
 			'@lezer/lr',
 			...builtins,
+			'obsidian-dataview/lib/api/inline-api',
 		],
 		format: 'cjs',
 		watch: !prod,

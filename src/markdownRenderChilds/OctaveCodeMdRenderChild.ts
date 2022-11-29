@@ -1,7 +1,7 @@
-import { AbstractCodeMdRenderChild, Language, LogEntry, LogLevel, PseudoConsole } from './AbstractCodeMdRenderChild';
+import { AbstractCodeMdRenderChild, Language } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import { MarkdownPostProcessorContext } from 'obsidian';
-import {ChildProcess, exec, spawn} from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
 import { getActiveFile, getVaultBasePath } from '../utils/Utils';
 import * as path from 'path';
 
@@ -9,10 +9,7 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process?: ChildProcess;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
-		super(containerEl, plugin, fullDeclaration);
-
-		this.setLanguage(Language.OCTAVE);
-		this.parseId();
+		super(containerEl, plugin, fullDeclaration, Language.OCTAVE);
 	}
 
 	getCommentString(): string {
@@ -23,11 +20,6 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		console.log(`OSR | running script of code block ${this.data.id}`);
 
 		this.clearConsole();
-		const pseudoConsole = new PseudoConsole();
-		pseudoConsole.onLog((logEntry: LogEntry) => {
-			this.data.console.push(logEntry);
-			this.component.updateConsole();
-		});
 
 		const fileName: string = `o${this.data.id?.replaceAll('-', '_')}`;
 		const filePath: string = path.join(getActiveFile().parent.path, `${fileName}.m`);
@@ -41,28 +33,18 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			detached: true,
 		});
 
-		this.data.running = true;
-		this.component.update();
+		this.onProcessStart();
 
 		this.process.stdout?.on('data', data => {
-			data = data.toString();
-			console.log('data', data);
-			pseudoConsole.log(data);
+			this.onProcessInfo(data.toString());
 		});
 
 		this.process.stderr?.on('data', data => {
-			data = data.toString();
-			console.log('err', data);
-			pseudoConsole.error(data);
+			this.onProcessError(data.toString());
 		});
 
 		this.process.on('exit', code => {
-			console.log('exit', code);
-			pseudoConsole.log(`\nprocess exited with code ${code}`);
-
-			this.data.running = false;
-			this.component.update();
-
+			this.onProcessEnd(code);
 			console.log('deleting file', filePath);
 			this.plugin.app.vault.delete(tFile);
 			this.process = undefined;
