@@ -18,8 +18,6 @@ If your plugin does not need CSS, delete this file.
 }
 
 .script-runner-settings-group {
-	padding: 0.75em 0;
-	border-top: 1px solid var(--background-modifier-border);
 }
 
 .script-runner-settings-group > :first-child {
@@ -31,9 +29,9 @@ If your plugin does not need CSS, delete this file.
 }
 
 .script-runner-settings-group > .setting-item {
-	margin: 0;
-	padding: 0.25em;
-	border: none;
+	border-top: 1px solid var(--background-modifier-border);
+	margin-top: var(--size-4-4);
+	padding: var(--size-4-2) var(--size-4-1);
 }
 
 code.script-runner-error-ui {

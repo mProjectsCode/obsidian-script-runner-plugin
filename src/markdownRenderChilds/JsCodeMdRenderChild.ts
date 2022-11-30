@@ -5,11 +5,15 @@ import { DataviewApi, getAPI } from 'obsidian-dataview';
 
 export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
-		super(containerEl, plugin, fullDeclaration, Language.JS);
+		super(containerEl, plugin, fullDeclaration);
 	}
 
 	getCommentString(): string {
 		return '//';
+	}
+
+	public getLanguage(): Language {
+		return Language.JS;
 	}
 
 	public async runProcess(): Promise<void> {
@@ -50,5 +54,9 @@ export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 	public async sendToProcess(data: string): Promise<void> {
 		throw Error('Sending data to this process is not supported');
+	}
+
+	public canConfigureExecutionPath(): boolean {
+		return false;
 	}
 }

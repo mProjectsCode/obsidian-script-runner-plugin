@@ -8,7 +8,11 @@ export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process: ChildProcess | undefined;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
-		super(containerEl, plugin, fullDeclaration, Language.CMD);
+		super(containerEl, plugin, fullDeclaration);
+	}
+
+	public getLanguage(): Language {
+		return Language.CMD;
 	}
 
 	getCommentString(): string {
@@ -69,6 +73,10 @@ export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 	public canSendToProcess(): boolean {
 		return false;
+	}
+
+	canConfigureExecutionPath(): boolean {
+		return true;
 	}
 
 	sendToProcess(data: string): Promise<void> {

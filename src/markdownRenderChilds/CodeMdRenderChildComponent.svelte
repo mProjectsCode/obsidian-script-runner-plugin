@@ -1,21 +1,22 @@
 <script lang="ts">
-	import {CodeMdRenderChildData, LogLevel} from './AbstractCodeMdRenderChild';
-	import {Button, SettingItem, TextInput} from 'obsidian-svelte';
+	import {CodeMdRenderChildData, LogLevel, PathMode} from './AbstractCodeMdRenderChild';
+	import {Button, Select, SettingItem} from 'obsidian-svelte';
 	import {getPlaceholderUUID, stripEmptyLinesAtBeginning} from '../utils/Utils';
 	import {onMount} from 'svelte';
 
 	export let data: CodeMdRenderChildData;
 	export let idCommentPlaceholder: string;
+	export let saveData: () => Promise<void>;
 	export let sendToProcess: (data: string) => Promise<void>;
 	export let runProcess: () => Promise<void>;
 	export let killProcess: (reason?: Error | string) => Promise<boolean>;
 	export let canSendToProcess: boolean;
 	export let canKillProcess: boolean;
-	export let saveData: () => Promise<void>;
+	export let canConfigureExecutionPath: boolean;
 
 	onMount(() => {
-		console.log(data);
 	});
+
 
 	export function update() {
 		data = data;
@@ -70,7 +71,55 @@
 		lines = stripEmptyLinesAtBeginning(lines);
 		return lines.join('\n');
 	}
+
+	function updateExecutionPathMode(mode: PathMode) {
+		data.saveData.executionPath.mode = mode;
+		saveData();
+	}
 </script>
+
+<style>
+	.flex-input-group {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		gap: var(--size-4-1);
+	}
+
+	.flex-input-group > .flex {
+		flex: 1;
+	}
+
+	.input-group {
+		padding: var(--size-4-2) var(--size-4-1);
+		margin-top: 1em;
+		border-top: 1px solid var(--background-modifier-border);
+	}
+
+	.input-heading {
+		color: var(--text-normal);
+		font-size: var(--font-ui-medium);
+		line-height: var(--line-height-tight);
+	}
+
+	.input-text {
+		color: var(--text-muted);
+		font-size: var(--font-ui-smaller);
+		padding-top: var(--size-4-1);
+		margin: 0;
+		line-height: var(--line-height-tight);
+	}
+
+	.input-content {
+		padding-top: var(--size-4-1);
+		margin: 0;
+	}
+
+	.code-block {
+		margin: 0;
+		padding: var(--size-4-2) var(--size-4-4);
+	}
+</style>
 
 <div class="card" style="background: var(--background-secondary)">
 	<h3>Script Runner</h3>
@@ -79,10 +128,31 @@
 	</div>
 	{#if data.id }
 		<div class="script-runner-settings-group">
+			{#if canConfigureExecutionPath}
+				<div class="input-group">
+					<span class="input-heading">Execution Path</span>
+					<div class="input-content">
+						<input style="width: 100%" type="text" placeholder="Execution Path" bind:value={data.saveData.executionPath.path} on:change={saveData}/>
+					</div>
+					<div class="flex-input-group input-content">
+						<div class="flex input-text">
+							Execution path mode.
+						</div>
+						<Select
+							options={Object.values(PathMode).map(x => { return { label: x.replaceAll('_', ' '), value: x } })}
+							value={data.saveData.executionPath.mode}
+							placeholder={PathMode.RELATIVE}
+							on:change={(evt) => updateExecutionPathMode(evt.detail)}>
+						</Select>
+					</div>
+				</div>
+			{/if}
+
+
 			<SettingItem
 				name="Run"
 				description="Run your script">
-				{#if data.running}
+				{#if data.isRunning}
 					{#if canKillProcess}
 						<Button on:click={tryKillProcess} variant="destructive">Terminate</Button>
 					{:else}
@@ -92,14 +162,18 @@
 					<Button on:click={tryRunProcess}>Run</Button>
 				{/if}
 			</SettingItem>
-			{#if canSendToProcess}
-				<div class="script-runner-row-flex">
-					<TextInput bind:value={data.input}></TextInput>
-					<Button on:click={() => trySendToProcess(data.input)}>Input</Button>
+
+			<div class="input-group">
+				<span class="input-heading">{data.hasRun ? 'Script Output' : 'Previous Output'}</span>
+				{#if canSendToProcess && data.hasRun}
+					<div class="flex-input-group input-content">
+						<input class="flex" type="text" placeholder="Input" bind:value={data.input}/>
+						<Button on:click={() => trySendToProcess(data.input)}>Send</Button>
+					</div>
+				{/if}
+				<div class="input-content">
+					<pre class="no-highlight code-block"><code>{#each data.saveData.console as logEntry}<span class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
 				</div>
-			{/if}
-			<div>
-				<pre class="no-highlight"><code>{#each data.saveData.console as logEntry}<span class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
 			</div>
 		</div>
 	{:else}

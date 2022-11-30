@@ -1,7 +1,8 @@
-import { MarkdownRenderChild } from 'obsidian';
+import { MarkdownRenderChild, TFile } from 'obsidian';
 import ScriptRunnerPlugin from '../main';
 import CodeMdRenderChildComponent from './CodeMdRenderChildComponent.svelte';
-import { getPlaceholderUUID } from '../utils/Utils';
+import { getActiveFile, getPlaceholderUUID, getVaultBasePath, ScriptRunnerInternalError } from '../utils/Utils';
+import * as path from 'path';
 
 export enum LogLevel {
 	TRACE,
@@ -20,7 +21,7 @@ export interface CodeMdRenderChildData {
 	idError: string | undefined;
 	content: string;
 	input: string;
-	running: boolean;
+	isRunning: boolean;
 	hasRun: boolean;
 	language: Language;
 	saveData: CodeMdRenderChildSaveData;
@@ -29,7 +30,7 @@ export interface CodeMdRenderChildData {
 export interface CodeMdRenderChildSaveData {
 	id: string | undefined;
 	console: LogEntry[];
-	executionPath?: {
+	executionPath: {
 		mode: PathMode;
 		path: string;
 	};
@@ -38,7 +39,6 @@ export interface CodeMdRenderChildSaveData {
 export enum PathMode {
 	RELATIVE = 'relative',
 	VAULT_RELATIVE = 'vault_relative',
-	ABSOLUTE = 'absolute',
 }
 
 export enum Language {
@@ -49,6 +49,24 @@ export enum Language {
 
 	UNDEFINED = 'undefined',
 }
+
+export const commentStringRecord: Record<Language, string | undefined> = {
+	[Language.JS]: '//',
+	[Language.PYTHON]: '#',
+	[Language.CMD]: '#',
+	[Language.OCTAVE]: '%',
+
+	[Language.UNDEFINED]: undefined,
+};
+
+export const fileEndingRecord: Record<Language, string | undefined> = {
+	[Language.JS]: undefined,
+	[Language.PYTHON]: 'py',
+	[Language.CMD]: undefined,
+	[Language.OCTAVE]: 'm',
+
+	[Language.UNDEFINED]: undefined,
+};
 
 export class PseudoConsole {
 	onLogCallback: (LogEntry: LogEntry) => void = (): void => {};
@@ -172,7 +190,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 	component: CodeMdRenderChildComponent;
 	readonly idFieldName: string = 'script-id';
 
-	protected constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, language: Language) {
+	protected constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string) {
 		super(containerEl);
 		this.plugin = plugin;
 
@@ -181,9 +199,9 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 			idError: undefined,
 			content: fullDeclaration,
 			input: '',
-			running: false,
+			isRunning: false,
 			hasRun: false,
-			language: language,
+			language: this.getLanguage(),
 			saveData: {} as CodeMdRenderChildSaveData,
 		};
 
@@ -203,18 +221,20 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 	}
 
 	loadData(): void {
-		console.log(`OSR | loaded data for ${this.data.id}`);
 		this.data.saveData = this.plugin.settings.codeMdRenderChildSaveData.find(x => x.id === this.data.id) ?? this.getDefaultCodeMdRenderChildSaveData();
+		console.log(`OSR | loaded data for ${this.data.id}`, this.data.saveData);
 	}
 
 	async saveData(): Promise<void> {
-		console.log(`OSR | saved data for ${this.data.id}`);
+		console.log(`OSR | saved data for ${this.data.id}`, this.data.saveData);
 		this.plugin.settings.codeMdRenderChildSaveData = this.plugin.settings.codeMdRenderChildSaveData.filter(x => x.id !== this.data.id);
 		this.plugin.settings.codeMdRenderChildSaveData.push(this.data.saveData);
 		await this.plugin.saveSettings();
 	}
 
 	abstract getCommentString(): string;
+
+	abstract getLanguage(): Language;
 
 	getIdCommentPlaceholder(): string {
 		return `${this.getCommentString()} ${this.idFieldName}: ${getPlaceholderUUID()}`;
@@ -276,17 +296,51 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 		}
 	}
 
-	protected setLanguage(language: Language): void {
-		this.data.language = language;
+	getExecutionPath(): { vaultRelativePath: string; absolutePath: string } {
+		let vaultRelativePath: string = '';
+		if (this.data.saveData.executionPath.mode === PathMode.RELATIVE) {
+			vaultRelativePath = path.join(getActiveFile().parent.path, this.data.saveData.executionPath.path);
+		} else if (this.data.saveData.executionPath.mode === PathMode.VAULT_RELATIVE) {
+			vaultRelativePath = this.data.saveData.executionPath.path;
+		}
+
+		return { vaultRelativePath: vaultRelativePath, absolutePath: path.join(getVaultBasePath(), vaultRelativePath) };
 	}
 
-	clearConsole(): void {
-		this.data.saveData.console = [];
+	getExecutionFilePath(vaultRelativePath: string, absolutePath: string): { vaultRelativePath: string; absolutePath: string } {
+		vaultRelativePath = path.join(vaultRelativePath, this.getExecutionFileName());
+		absolutePath = path.join(absolutePath, this.getExecutionFileName());
+
+		return { vaultRelativePath: vaultRelativePath, absolutePath: absolutePath };
 	}
 
-	onProcessStart(): void {
-		this.data.running = true;
-		this.component.update();
+	getExecutionFileName(): string {
+		if (!this.data.id) {
+			throw new ScriptRunnerInternalError('can not get execution file name, id is undefined');
+		}
+
+		const fileEnding = fileEndingRecord[this.data.language];
+		if (!fileEnding) {
+			throw new ScriptRunnerInternalError('can not get execution file name, file ending is undefined');
+		}
+
+		return `${this.getLanguage()}_${this.data.id.replaceAll('-', '_')}.${fileEnding}`;
+	}
+
+	async createExecutionFile(content: string): Promise<{ tFile: TFile; vaultRelativeFilePath: string; absoluteFilePath: string }> {
+		const folderPath = this.getExecutionPath();
+		const filePath = this.getExecutionFilePath(folderPath.vaultRelativePath, folderPath.absolutePath);
+		console.log(`OSR | creating execution file ${filePath.vaultRelativePath} for ${this.data.id}`);
+		return {
+			tFile: await this.plugin.app.vault.create(filePath.vaultRelativePath, content),
+			vaultRelativeFilePath: filePath.vaultRelativePath,
+			absoluteFilePath: filePath.absolutePath,
+		};
+	}
+
+	async deleteExecutionFile(file: TFile): Promise<void> {
+		console.log(`OSR | deleting execution file ${file.path} for ${this.data.id}`);
+		await this.plugin.app.vault.delete(file);
 	}
 
 	createPseudoConsole(addNewline: boolean = false): PseudoConsole {
@@ -297,6 +351,16 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 		pseudoConsole.onError(this.onProcessError.bind(this));
 
 		return pseudoConsole;
+	}
+
+	clearConsole(): void {
+		this.data.saveData.console = [];
+	}
+
+	onProcessStart(): void {
+		this.data.isRunning = true;
+		this.data.hasRun = true;
+		this.component.update();
 	}
 
 	onProcessTrace(message: string | LogEntry): void {
@@ -354,7 +418,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 			const data = `\n\nprocess exited with code ${code ?? 0}`;
 			this.onProcessTrace(data);
 		}
-		this.data.running = false;
+		this.data.isRunning = false;
 		this.saveData();
 		this.component.update();
 	}
@@ -369,8 +433,13 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 
 	abstract canKillProcess(): boolean;
 
+	abstract canConfigureExecutionPath(): boolean;
+
 	public onload(): void {
 		console.log(this.data);
+		const c = new PseudoConsole(false);
+		c.onInfo(console.log.bind(this));
+
 		this.component = new CodeMdRenderChildComponent({
 			target: this.containerEl,
 			props: {
@@ -381,7 +450,8 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 				killProcess: this.killProcess.bind(this),
 				canSendToProcess: this.canSendToProcess(),
 				canKillProcess: this.canKillProcess(),
-				save: this.saveData.bind(this),
+				canConfigureExecutionPath: this.canConfigureExecutionPath(),
+				saveData: this.saveData.bind(this),
 			},
 		});
 	}

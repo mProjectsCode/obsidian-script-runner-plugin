@@ -9,11 +9,15 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process?: ChildProcess;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
-		super(containerEl, plugin, fullDeclaration, Language.OCTAVE);
+		super(containerEl, plugin, fullDeclaration);
 	}
 
 	getCommentString(): string {
 		return '%';
+	}
+
+	public getLanguage(): Language {
+		return Language.OCTAVE;
 	}
 
 	public async runProcess(): Promise<void> {
@@ -21,12 +25,7 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 		this.clearConsole();
 
-		const fileName: string = `o${this.data.id?.replaceAll('-', '_')}`;
-		const filePath: string = path.join(getActiveFile().parent.path, `${fileName}.m`);
-		const absoluteFilePath: string = path.join(getVaultBasePath(), filePath);
-
-		console.log('creating file', filePath);
-		const tFile = await this.plugin.app.vault.create(filePath, this.data.content);
+		const { tFile, vaultRelativeFilePath, absoluteFilePath } = await this.createExecutionFile(this.data.content);
 
 		this.process = spawn('octave', ['--persist', absoluteFilePath], {
 			shell: true,
@@ -45,8 +44,7 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 		this.process.on('exit', code => {
 			this.onProcessEnd(code);
-			console.log('deleting file', filePath);
-			this.plugin.app.vault.delete(tFile);
+			this.deleteExecutionFile(tFile);
 			this.process = undefined;
 		});
 	}
@@ -65,5 +63,9 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 	public async sendToProcess(data: string): Promise<void> {
 		throw Error('Sending data to this process is not supported');
+	}
+
+	public canConfigureExecutionPath(): boolean {
+		return true;
 	}
 }

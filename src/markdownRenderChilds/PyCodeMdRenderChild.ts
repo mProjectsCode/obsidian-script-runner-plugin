@@ -1,6 +1,6 @@
 import { AbstractCodeMdRenderChild, Language } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
-import { MarkdownPostProcessorContext } from 'obsidian';
+import { MarkdownPostProcessorContext, TFile } from 'obsidian';
 import { ChildProcess, spawn } from 'child_process';
 import { getActiveFile, getVaultBasePath } from '../utils/Utils';
 import * as path from 'path';
@@ -9,11 +9,15 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process?: ChildProcess;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {
-		super(containerEl, plugin, fullDeclaration, Language.PYTHON);
+		super(containerEl, plugin, fullDeclaration);
 	}
 
 	getCommentString(): string {
 		return '#';
+	}
+
+	public getLanguage(): Language {
+		return Language.PYTHON;
 	}
 
 	public async runProcess(): Promise<void> {
@@ -21,11 +25,7 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 		this.clearConsole();
 
-		const filePath: string = path.join(getActiveFile().parent.path, `${this.data.id}.py`);
-		const absoluteFilePath: string = path.join(getVaultBasePath(), filePath);
-
-		console.log('creating file', filePath);
-		const tFile = await this.plugin.app.vault.create(filePath, this.data.content);
+		const { tFile, vaultRelativeFilePath, absoluteFilePath } = await this.createExecutionFile(this.data.content);
 
 		this.process = spawn('py', ['-u', absoluteFilePath], {
 			stdio: ['pipe', 'pipe', 'pipe'],
@@ -43,8 +43,7 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 
 		this.process.on('exit', code => {
 			this.onProcessEnd(code);
-			console.log('deleting file', filePath);
-			this.plugin.app.vault.delete(tFile);
+			this.deleteExecutionFile(tFile);
 			this.process = undefined;
 		});
 	}
@@ -88,5 +87,9 @@ export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 			}
 		});
 		this.onProcessTrace(data);
+	}
+
+	public canConfigureExecutionPath(): boolean {
+		return true;
 	}
 }
