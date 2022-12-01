@@ -1,15 +1,16 @@
-import { MarkdownRenderChild, TFile } from 'obsidian';
+import {MarkdownRenderChild, normalizePath, TFile} from 'obsidian';
 import ScriptRunnerPlugin from '../main';
 import CodeMdRenderChildComponent from './CodeMdRenderChildComponent.svelte';
-import { getActiveFile, getPlaceholderUUID, getVaultBasePath, ScriptRunnerInternalError } from '../utils/Utils';
+import {getActiveFile, getPlaceholderUUID, getVaultBasePath, ScriptRunnerInternalError} from '../utils/Utils';
 import * as path from 'path';
 
-export enum LogLevel {
-	TRACE,
-	INFO,
-	WARN,
-	ERROR,
-}
+export const LogLevel = {
+	TRACE: 'trace',
+	INFO: 'info',
+	WARN: 'warn',
+	ERROR: 'error',
+} as const;
+type LogLevel = typeof LogLevel[keyof typeof LogLevel];
 
 export interface LogEntry {
 	level: LogLevel;
@@ -41,32 +42,33 @@ export enum PathMode {
 	VAULT_RELATIVE = 'vault_relative',
 }
 
-export enum Language {
-	JS = 'js',
-	PYTHON = 'python',
-	CMD = 'bash',
-	OCTAVE = 'matlab',
+export const Language =  {
+	JS: 'js',
+	PYTHON: 'python',
+	CMD: 'bash',
+	OCTAVE: 'matlab',
 
-	UNDEFINED = 'undefined',
-}
+	UNDEFINED: 'undefined',
+} as const;
+export type Language = typeof Language[keyof typeof Language];
 
-export const commentStringRecord: Record<Language, string | undefined> = {
+export const commentStringRecord = {
 	[Language.JS]: '//',
 	[Language.PYTHON]: '#',
 	[Language.CMD]: '#',
 	[Language.OCTAVE]: '%',
 
 	[Language.UNDEFINED]: undefined,
-};
+} as const satisfies {[k in Language]: string | undefined};
 
-export const fileEndingRecord: Record<Language, string | undefined> = {
+export const fileEndingRecord = {
 	[Language.JS]: undefined,
 	[Language.PYTHON]: 'py',
 	[Language.CMD]: undefined,
 	[Language.OCTAVE]: 'm',
 
 	[Language.UNDEFINED]: undefined,
-};
+} as const satisfies {[k in Language]: string | undefined};
 
 export class PseudoConsole {
 	onLogCallback: (LogEntry: LogEntry) => void = (): void => {};
@@ -232,8 +234,6 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 		await this.plugin.saveSettings();
 	}
 
-	abstract getCommentString(): string;
-
 	abstract getLanguage(): Language;
 
 	getIdCommentPlaceholder(): string {
@@ -319,7 +319,7 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 			throw new ScriptRunnerInternalError('can not get execution file name, id is undefined');
 		}
 
-		const fileEnding = fileEndingRecord[this.data.language];
+		const fileEnding = this.getFileEnding();
 		if (!fileEnding) {
 			throw new ScriptRunnerInternalError('can not get execution file name, file ending is undefined');
 		}
@@ -327,12 +327,36 @@ export abstract class AbstractCodeMdRenderChild extends MarkdownRenderChild {
 		return `${this.getLanguage()}_${this.data.id.replaceAll('-', '_')}.${fileEnding}`;
 	}
 
+	getFileEnding(): string {
+		const fileEnding = fileEndingRecord[this.data.language];
+		if (!fileEnding) {
+			throw new ScriptRunnerInternalError('can not get file ending, file ending for language is undefined');
+		}
+		return fileEnding;
+	}
+
+	getCommentString(): string {
+		const commentString = commentStringRecord[this.data.language];
+		if (!commentString) {
+			throw new ScriptRunnerInternalError('can not get comment string, comment string for language is undefined');
+		}
+		return commentString;
+	}
+
 	async createExecutionFile(content: string): Promise<{ tFile: TFile; vaultRelativeFilePath: string; absoluteFilePath: string }> {
 		const folderPath = this.getExecutionPath();
 		const filePath = this.getExecutionFilePath(folderPath.vaultRelativePath, folderPath.absolutePath);
-		console.log(`OSR | creating execution file ${filePath.vaultRelativePath} for ${this.data.id}`);
+
+		let tFile: TFile = this.plugin.app.vault.getAbstractFileByPath(normalizePath(filePath.vaultRelativePath)) as TFile;
+		if (tFile) {
+			console.log(`OSR | modifying execution file ${filePath.vaultRelativePath} for ${this.data.id}`);
+			await this.plugin.app.vault.modify(tFile, content);
+		} else {
+			console.log(`OSR | creating execution file ${filePath.vaultRelativePath} for ${this.data.id}`);
+			tFile = await this.plugin.app.vault.create(filePath.vaultRelativePath, content);
+		}
 		return {
-			tFile: await this.plugin.app.vault.create(filePath.vaultRelativePath, content),
+			tFile: tFile,
 			vaultRelativeFilePath: filePath.vaultRelativePath,
 			absoluteFilePath: filePath.absolutePath,
 		};

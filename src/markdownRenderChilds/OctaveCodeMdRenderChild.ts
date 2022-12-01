@@ -12,10 +12,6 @@ export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		super(containerEl, plugin, fullDeclaration);
 	}
 
-	getCommentString(): string {
-		return '%';
-	}
-
 	public getLanguage(): Language {
 		return Language.OCTAVE;
 	}

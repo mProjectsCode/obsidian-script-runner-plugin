@@ -15,10 +15,6 @@ export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		return Language.CMD;
 	}
 
-	getCommentString(): string {
-		return '#';
-	}
-
 	public async runProcess(): Promise<void> {
 		console.log(`OSR | running script of code block ${this.data.id}`);
 

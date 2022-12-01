@@ -8,10 +8,6 @@ export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 		super(containerEl, plugin, fullDeclaration);
 	}
 
-	getCommentString(): string {
-		return '//';
-	}
-
 	public getLanguage(): Language {
 		return Language.JS;
 	}
