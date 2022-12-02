@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-ttrpg-utilites-plugin",
+	"name": "obsidian-script-runner-plugin",
 	"version": "0.0.1",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "This plugin can run scripts from within obsidian.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
@@ -11,8 +11,8 @@
 		"format": "prettier --write ."
 	},
 	"keywords": [],
-	"author": "",
-	"license": "MIT",
+	"author": "Moritz Jung",
+	"license": "GPL-3.0",
 	"devDependencies": {
 		"@tsconfig/svelte": "^3.0.0",
 		"@types/jest": "^28.1.3",
