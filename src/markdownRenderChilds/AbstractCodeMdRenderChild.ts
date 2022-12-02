@@ -1,7 +1,7 @@
-import {MarkdownRenderChild, normalizePath, TFile} from 'obsidian';
+import { MarkdownRenderChild, normalizePath, TFile } from 'obsidian';
 import ScriptRunnerPlugin from '../main';
 import CodeMdRenderChildComponent from './CodeMdRenderChildComponent.svelte';
-import {getActiveFile, getPlaceholderUUID, getVaultBasePath, ScriptRunnerInternalError} from '../utils/Utils';
+import { getActiveFile, getPlaceholderUUID, getVaultBasePath, ScriptRunnerInternalError } from '../utils/Utils';
 import * as path from 'path';
 
 export const LogLevel = {
@@ -11,6 +11,13 @@ export const LogLevel = {
 	ERROR: 'error',
 } as const;
 type LogLevel = typeof LogLevel[keyof typeof LogLevel];
+
+export const logLevelRecord = {
+	[LogLevel.TRACE]: 'script-runner-trace-console',
+	[LogLevel.INFO]: 'script-runner-info-console',
+	[LogLevel.WARN]: 'script-runner-warn-console',
+	[LogLevel.ERROR]: 'script-runner-error-console',
+} as const satisfies { [k in LogLevel]: string };
 
 export interface LogEntry {
 	level: LogLevel;
@@ -42,7 +49,7 @@ export enum PathMode {
 	VAULT_RELATIVE = 'vault_relative',
 }
 
-export const Language =  {
+export const Language = {
 	JS: 'js',
 	PYTHON: 'python',
 	CMD: 'bash',
@@ -59,7 +66,7 @@ export const commentStringRecord = {
 	[Language.OCTAVE]: '%',
 
 	[Language.UNDEFINED]: undefined,
-} as const satisfies {[k in Language]: string | undefined};
+} as const satisfies { [k in Language]: string | undefined };
 
 export const fileEndingRecord = {
 	[Language.JS]: undefined,
@@ -68,7 +75,7 @@ export const fileEndingRecord = {
 	[Language.OCTAVE]: 'm',
 
 	[Language.UNDEFINED]: undefined,
-} as const satisfies {[k in Language]: string | undefined};
+} as const satisfies { [k in Language]: string | undefined };
 
 export class PseudoConsole {
 	onLogCallback: (LogEntry: LogEntry) => void = (): void => {};

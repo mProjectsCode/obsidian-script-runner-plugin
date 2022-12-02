@@ -1,9 +1,7 @@
 import { AbstractCodeMdRenderChild, Language } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
-import { MarkdownPostProcessorContext, TFile } from 'obsidian';
+import { MarkdownPostProcessorContext } from 'obsidian';
 import { ChildProcess, spawn } from 'child_process';
-import { getActiveFile, getVaultBasePath } from '../utils/Utils';
-import * as path from 'path';
 
 export class PyCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process?: ChildProcess;

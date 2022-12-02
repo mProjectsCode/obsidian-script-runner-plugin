@@ -1,5 +1,5 @@
 <script lang="ts">
-	import {CodeMdRenderChildData, LogLevel, PathMode} from './AbstractCodeMdRenderChild';
+	import {CodeMdRenderChildData, LogLevel, logLevelRecord, PathMode} from './AbstractCodeMdRenderChild';
 	import {Button, Select, SettingItem} from 'obsidian-svelte';
 	import {getPlaceholderUUID, stripEmptyLinesAtBeginning} from '../utils/Utils';
 	import {onMount} from 'svelte';
@@ -46,14 +46,7 @@
 	}
 
 	function getClassForLogLevel(level: LogLevel) {
-		let logLevelMap: Record<LogLevel, string> = {
-			[LogLevel.TRACE]: 'script-runner-trace-console',
-			[LogLevel.INFO]: '',
-			[LogLevel.WARN]: 'script-runner-warn-console',
-			[LogLevel.ERROR]: 'script-runner-error-console',
-		};
-
-		return logLevelMap[level] ?? '';
+		return logLevelRecord[level];
 	}
 
 	function getCodeBlockLang() {
@@ -80,10 +73,10 @@
 
 <style>
 	.flex-input-group {
-		display: flex;
+		display:        flex;
 		flex-direction: row;
-		align-items: center;
-		gap: var(--size-4-1);
+		align-items:    center;
+		gap:            var(--size-4-1);
 	}
 
 	.flex-input-group > .flex {
@@ -91,32 +84,32 @@
 	}
 
 	.input-group {
-		padding: var(--size-4-2) var(--size-4-1);
+		padding:    var(--size-4-2) var(--size-4-1);
 		margin-top: 1em;
 		border-top: 1px solid var(--background-modifier-border);
 	}
 
 	.input-heading {
-		color: var(--text-normal);
-		font-size: var(--font-ui-medium);
+		color:       var(--text-normal);
+		font-size:   var(--font-ui-medium);
 		line-height: var(--line-height-tight);
 	}
 
 	.input-text {
-		color: var(--text-muted);
-		font-size: var(--font-ui-smaller);
+		color:       var(--text-muted);
+		font-size:   var(--font-ui-smaller);
 		padding-top: var(--size-4-1);
-		margin: 0;
+		margin:      0;
 		line-height: var(--line-height-tight);
 	}
 
 	.input-content {
 		padding-top: var(--size-4-1);
-		margin: 0;
+		margin:      0;
 	}
 
 	.code-block {
-		margin: 0;
+		margin:  0;
 		padding: var(--size-4-2) var(--size-4-4);
 	}
 </style>
@@ -132,7 +125,8 @@
 				<div class="input-group">
 					<span class="input-heading">Execution Path</span>
 					<div class="input-content">
-						<input style="width: 100%" type="text" placeholder="Execution Path" bind:value={data.saveData.executionPath.path} on:change={saveData}/>
+						<input style="width: 100%" type="text" placeholder="Execution Path"
+							   bind:value={data.saveData.executionPath.path} on:change={saveData}/>
 					</div>
 					<div class="flex-input-group input-content">
 						<div class="flex input-text">
@@ -172,7 +166,8 @@
 					</div>
 				{/if}
 				<div class="input-content">
-					<pre class="no-highlight code-block"><code>{#each data.saveData.console as logEntry}<span class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
+					<pre class="no-highlight code-block"><code>{#each data.saveData.console as logEntry}<span
+						class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
 				</div>
 			</div>
 		</div>
