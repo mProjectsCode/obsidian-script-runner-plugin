@@ -1,74 +1,36 @@
 <script lang="ts">
-	import {CodeMdRenderChildData, PathMode} from './AbstractCodeMdRenderChild';
-	import {Button, Select, SettingItem} from 'obsidian-svelte';
+	import {CodeMdRenderChild} from './CodeMdRenderChild';
 	import {getPlaceholderUUID, stripEmptyLinesAtBeginning} from '../utils/Utils';
-	import {onMount} from 'svelte';
+	import {Button, Select, SettingItem} from 'obsidian-svelte';
+	import {PathMode} from '../RunConfiguration';
 	import {LogLevel, logLevelRecord} from '../utils/PseudoConsole';
 
-	export let data: CodeMdRenderChildData;
-	export let idCommentPlaceholder: string;
-	export let saveData: () => Promise<void>;
-	export let sendToProcess: (data: string) => Promise<void>;
-	export let runProcess: () => Promise<void>;
-	export let killProcess: (reason?: Error | string) => Promise<boolean>;
-	export let canSendToProcess: boolean;
-	export let canKillProcess: boolean;
-	export let canConfigureExecutionPath: boolean;
+	export let renderChild: CodeMdRenderChild;
 
-	onMount(() => {
-	});
-
+	let sendInputInputFieldValue: string;
 
 	export function update() {
-		data = data;
-	}
-
-	export function updateConsole() {
-		data.saveData.console = data.saveData.console;
-	}
-
-	function tryRunProcess() {
-		runProcess();
-		data = data;
-	}
-
-	function tryKillProcess() {
-		if (canKillProcess) {
-			killProcess('User terminated Process');
-			data = data;
-		}
-	}
-
-	function trySendToProcess(d: string) {
-		if (canSendToProcess) {
-			sendToProcess(d);
-			data = data;
-		}
-	}
-
-	function getClassForLogLevel(level: LogLevel) {
-		return logLevelRecord[level];
+		renderChild = renderChild;
 	}
 
 	function getCodeBlockLang() {
-		return `language-${data.language}`;
+		return `language-${renderChild.state.runConfig?.language}`;
 	}
 
 	function getCodeBlockContent() {
-		if (!data.id) {
-			return data.content;
+		if (!renderChild.state.uuid) {
+			return renderChild.state.codeBlockContent;
 		}
 
-		let lines: string[] = data.content.split('\n');
+		let lines: string[] = renderChild.state.codeBlockContent.split('\n');
 		// remove id comment
 		lines = lines.slice(1);
 		lines = stripEmptyLinesAtBeginning(lines);
 		return lines.join('\n');
 	}
 
-	function updateExecutionPathMode(mode: PathMode) {
-		data.saveData.executionPath.mode = mode;
-		saveData();
+	function getClassForLogLevel(level: LogLevel) {
+		return logLevelRecord[level];
 	}
 </script>
 
@@ -120,14 +82,14 @@
 	<div>
 		<pre class={getCodeBlockLang()}><code class={getCodeBlockLang()}>{getCodeBlockContent()}</code></pre>
 	</div>
-	{#if data.id }
+	{#if renderChild.state.uuid }
 		<div class="script-runner-settings-group">
-			{#if canConfigureExecutionPath}
+			{#if renderChild.state.languageConfig.permissions.canSpecifyExecutionPath}
 				<div class="input-group">
 					<span class="input-heading">Execution Path</span>
 					<div class="input-content">
 						<input style="width: 100%" type="text" placeholder="Execution Path"
-							   bind:value={data.saveData.executionPath.path} on:change={saveData}/>
+							   bind:value={renderChild.state.runConfig?.executionPath?.path}/>
 					</div>
 					<div class="flex-input-group input-content">
 						<div class="flex input-text">
@@ -135,9 +97,8 @@
 						</div>
 						<Select
 							options={Object.values(PathMode).map(x => { return { label: x.replaceAll('_', ' '), value: x } })}
-							value={data.saveData.executionPath.mode}
-							placeholder={PathMode.RELATIVE}
-							on:change={(evt) => updateExecutionPathMode(evt.detail)}>
+							value={renderChild.state.runConfig?.executionPath?.mode}
+							on:change={(evt) => renderChild.state.runConfig.executionPath.mode = evt.detail}>
 						</Select>
 					</div>
 				</div>
@@ -147,27 +108,27 @@
 			<SettingItem
 				name="Run"
 				description="Run your script">
-				{#if data.isRunning}
-					{#if canKillProcess}
-						<Button on:click={tryKillProcess} variant="destructive">Terminate</Button>
+				{#if renderChild.state.scriptState.isRunning}
+					{#if renderChild.state.languageConfig?.permissions.canTerminateScript}
+						<Button on:click={() => {}} variant="destructive">Terminate</Button>
 					{:else}
 						<Button>Running...</Button>
 					{/if}
 				{:else}
-					<Button on:click={tryRunProcess}>Run</Button>
+					<Button on:click={() => {}}>Run</Button>
 				{/if}
 			</SettingItem>
 
 			<div class="input-group">
-				<span class="input-heading">{data.hasRun ? 'Script Output' : 'Previous Output'}</span>
-				{#if canSendToProcess && data.hasRun}
+				<span class="input-heading">{renderChild.state.scriptState.hasRun ? 'Script Output' : 'Previous Output'}</span>
+				{#if renderChild.state.languageConfig.permissions.canSendInput && renderChild.state.scriptState.hasRun}
 					<div class="flex-input-group input-content">
-						<input class="flex" type="text" placeholder="Input" bind:value={data.input}/>
-						<Button on:click={() => trySendToProcess(data.input)}>Send</Button>
+						<input class="flex" type="text" placeholder="Input" bind:value={sendInputInputFieldValue}/>
+						<Button on:click={() => {}}>Send</Button>
 					</div>
 				{/if}
 				<div class="input-content">
-					<pre class="no-highlight code-block"><code>{#each data.saveData.console as logEntry}<span
+					<pre class="no-highlight code-block"><code>{#each renderChild.state.runConfig.scriptData.scriptConsole as logEntry}<span
 						class={getClassForLogLevel(logEntry.level)}>{logEntry.message}</span>{/each}</code></pre>
 				</div>
 			</div>
@@ -179,11 +140,11 @@
 				The code block is missing an id or the id comment is incorrect.
 			</p>
 			<p><b>Reason</b></p>
-			<code class="script-runner-error-ui">{data.idError}</code>
+			<code class="script-runner-error-ui">{renderChild.state.uuidParseError}</code>
 			<p>
 				The id comment should look like
 			</p>
-			<code>{idCommentPlaceholder}</code>
+			<code>{renderChild.getIdCommentPlaceHolder()}</code>
 			<p>
 				and be the first line in the code block.
 			</p>

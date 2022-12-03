@@ -1,8 +1,9 @@
-import { AbstractCodeMdRenderChild, Language } from './AbstractCodeMdRenderChild';
+import { AbstractCodeMdRenderChild } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import { MarkdownPostProcessorContext } from 'obsidian';
 import { ChildProcess, exec } from 'child_process';
 import { isTruthy } from '../utils/Utils';
+import {Language} from '../scriptRunners/AbstractScriptRunner';
 
 export class CmdCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process: ChildProcess | undefined;

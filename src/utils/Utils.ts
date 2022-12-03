@@ -38,7 +38,7 @@ export function getVaultBasePath(): string {
 	return app.vault.adapter.getBasePath();
 }
 
-export function getActiveFile(): TFile {
+export function getActiveFile(): TFile | null {
 	// @ts-ignore undocumented but works
 	return app.workspace.getActiveFile();
 }
