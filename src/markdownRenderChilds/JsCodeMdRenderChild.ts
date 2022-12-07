@@ -2,7 +2,7 @@ import { AbstractCodeMdRenderChild } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import { MarkdownPostProcessorContext, TFile } from 'obsidian';
 import { DataviewApi, getAPI } from 'obsidian-dataview';
-import {Language} from '../scriptRunners/AbstractScriptRunner';
+import { Language } from '../scriptRunners/AbstractScriptRunner';
 
 export class JsCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, fullDeclaration: string, ctx: MarkdownPostProcessorContext) {

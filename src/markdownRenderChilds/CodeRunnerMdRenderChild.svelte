@@ -4,12 +4,17 @@
 	import {Button, Select, SettingItem} from 'obsidian-svelte';
 	import {PathMode} from '../RunConfiguration';
 	import {LogLevel, logLevelRecord} from '../utils/PseudoConsole';
+	import {onMount} from 'svelte';
 
 	export let renderChild: CodeMdRenderChild;
 
 	let sendInputInputFieldValue: string;
 
+	onMount(() => {
+	});
+
 	export function update() {
+		console.log('svelte update');
 		renderChild = renderChild;
 	}
 
@@ -89,7 +94,7 @@
 					<span class="input-heading">Execution Path</span>
 					<div class="input-content">
 						<input style="width: 100%" type="text" placeholder="Execution Path"
-							   bind:value={renderChild.state.runConfig?.executionPath?.path}/>
+							   bind:value={renderChild.state.runConfig.executionPath.path}/>
 					</div>
 					<div class="flex-input-group input-content">
 						<div class="flex input-text">
@@ -104,27 +109,31 @@
 				</div>
 			{/if}
 
-
 			<SettingItem
 				name="Run"
 				description="Run your script">
 				{#if renderChild.state.scriptState.isRunning}
 					{#if renderChild.state.languageConfig?.permissions.canTerminateScript}
-						<Button on:click={() => {}} variant="destructive">Terminate</Button>
+						<Button on:click={() => {renderChild.scriptRunner?.tryTerminateScript('user terminated')}}
+								variant="destructive">Terminate
+						</Button>
 					{:else}
 						<Button>Running...</Button>
 					{/if}
 				{:else}
-					<Button on:click={() => {}}>Run</Button>
+					<Button on:click={() => {renderChild.scriptRunner.tryExecuteScript()}}>Run</Button>
 				{/if}
 			</SettingItem>
 
 			<div class="input-group">
-				<span class="input-heading">{renderChild.state.scriptState.hasRun ? 'Script Output' : 'Previous Output'}</span>
+				<span
+					class="input-heading">{renderChild.state.scriptState.hasRun ? 'Script Output' : 'Previous Output'}</span>
 				{#if renderChild.state.languageConfig.permissions.canSendInput && renderChild.state.scriptState.hasRun}
 					<div class="flex-input-group input-content">
 						<input class="flex" type="text" placeholder="Input" bind:value={sendInputInputFieldValue}/>
-						<Button on:click={() => {}}>Send</Button>
+						<Button on:click={() => {renderChild.scriptRunner?.trySendInput(sendInputInputFieldValue)}}>
+							Send
+						</Button>
 					</div>
 				{/if}
 				<div class="input-content">

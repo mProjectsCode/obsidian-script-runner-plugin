@@ -68,3 +68,39 @@ export function stripEmptyLinesAtBeginning(lines: string[]): string[] {
 
 	return newLines;
 }
+
+/**
+ * Gets the file name from a path
+ *
+ * @param path
+ */
+export function getFileName(path: string): string {
+	return path.split('/').at(-1) ?? path;
+}
+
+/**
+ * Checks if a path is a path or a file name
+ *
+ * @param path
+ */
+export function isPath(path: string): boolean {
+	return path.split('/').at(-1)?.split('.').length === 1;
+}
+
+/**
+ * Removes the file ending of a file name
+ *
+ * @param fileName
+ */
+export function removeFileEnding(fileName: string): string {
+	const fileNameParts = fileName.split('.');
+	if (fileNameParts.length === 1) {
+		return fileName;
+	} else {
+		let newFileName = fileNameParts[0];
+		for (let i = 1; i < fileNameParts.length - 1; i++) {
+			newFileName += '.' + fileNameParts[i];
+		}
+		return newFileName;
+	}
+}

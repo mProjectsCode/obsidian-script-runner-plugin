@@ -1,9 +1,9 @@
-import {ArgumentType, CommandLineArgument, Path, PathMode, RunConfiguration} from '../RunConfiguration';
-import {LogEntry, LogLevel, PseudoConsole} from '../utils/PseudoConsole';
-import {LanguageConfiguration} from '../LanguageConfiguration';
-import {ChildProcess, spawn} from 'child_process';
-import {getActiveFile, getVaultBasePath, ScriptRunnerInternalError} from '../utils/Utils';
-import {normalizePath, TFile} from 'obsidian';
+import { ArgumentType, CommandLineArgument, PathMode, RunConfiguration, ScriptType } from '../RunConfiguration';
+import { LogEntry, LogLevel, PseudoConsole } from '../utils/PseudoConsole';
+import { LanguageConfiguration } from '../LanguageConfiguration';
+import { ChildProcess, spawn } from 'child_process';
+import {getActiveFile, getVaultBasePath, isPath} from '../utils/Utils';
+import { normalizePath, TFile } from 'obsidian';
 import ScriptRunnerPlugin from '../main';
 import * as path from 'path';
 
@@ -17,6 +17,12 @@ export const Language = {
 } as const;
 export type Language = typeof Language[keyof typeof Language];
 
+export const LanguageMap: Record<string, Language> = {
+	'js': Language.JS,
+	'py': Language.PYTHON,
+	'octave': Language.OCTAVE,
+};
+
 export abstract class AbstractScriptRunner {
 	readonly plugin: ScriptRunnerPlugin;
 
@@ -24,15 +30,15 @@ export abstract class AbstractScriptRunner {
 	readonly runConfiguration: RunConfiguration;
 
 	protected onScriptConsoleLogCallback?: (message: LogEntry) => void;
-	protected onExecuteScriptCallback?: () => void;
-	protected onTerminateScriptCallback?: (reason: string | Error) => void;
-	protected onSendInputCallback?: (data: string) => void;
+	protected onExecuteScriptCallback?: () => void | Promise<void>;
+	protected onTerminateScriptCallback?: (reason: string | Error) => void | Promise<void>;
+	protected onSendInputCallback?: (data: string) => void | Promise<void>;
 
-	protected onScriptStartCallback?: () => void;
-	protected onScriptEndCallback?: (code: number | undefined | null) => void;
+	protected onScriptStartCallback?: () => void | Promise<void>;
+	protected onScriptEndCallback?: (code: number | undefined | null) => void | Promise<void>;
 
 	process?: ChildProcess;
-
+	executionFileToCleanUp: TFile | undefined;
 
 	protected constructor(plugin: ScriptRunnerPlugin, languageConfiguration: LanguageConfiguration, runConfiguration: RunConfiguration) {
 		this.plugin = plugin;
@@ -53,7 +59,8 @@ export abstract class AbstractScriptRunner {
 		if (!this.runConfiguration.overrides.overrideDetached) {
 			// return the language default
 			return this.languageConfiguration.languageDefaults.detached;
-		} else { // else run config should override
+		} else {
+			// else run config should override
 			// if the override is undefined
 			if (this.runConfiguration.overrides.detached == null) {
 				// throw error
@@ -82,7 +89,8 @@ export abstract class AbstractScriptRunner {
 
 			// else return them merged
 			return this.languageConfiguration.languageDefaults.commandLineArguments.concat(this.runConfiguration.overrides.commandLineArguments);
-		} else { // else run config should override
+		} else {
+			// else run config should override
 			// if the override is undefined
 			if (this.runConfiguration.overrides.commandLineArguments == null) {
 				// throw error
@@ -95,24 +103,26 @@ export abstract class AbstractScriptRunner {
 	}
 
 	getCommandLineArgumentsAsStringArray(): string[] {
-		return this.getCommandLineArgumentsOverride().map(x => {
-			if (x.type === ArgumentType.SINGLE_VALUE) {
-				if (!x.value) {
-					throw new Error('Argument value may not be empty');
+		return this.getCommandLineArgumentsOverride()
+			.map(x => {
+				if (x.type === ArgumentType.SINGLE_VALUE) {
+					if (!x.value) {
+						throw new Error('Argument value may not be empty');
+					}
+					return [x.value];
+				} else if (x.type === ArgumentType.KEY_VALUE) {
+					if (!x.value) {
+						throw new Error('Argument value may not be empty');
+					}
+					if (!x.key) {
+						throw new Error('Argument key may not be empty');
+					}
+					return [x.key, x.value];
+				} else {
+					throw new Error('Undefined argument type');
 				}
-				return [x.value];
-			} else if (x.type === ArgumentType.KEY_VALUE) {
-				if (!x.value) {
-					throw new Error('Argument value may not be empty');
-				}
-				if (!x.key) {
-					throw new Error('Argument key may not be empty');
-				}
-				return [x.key, x.value];
-			} else {
-				throw new Error('Undefined argument type');
-			}
-		}).flat(1);
+			})
+			.flat(1);
 	}
 
 	// endregion
@@ -122,7 +132,30 @@ export abstract class AbstractScriptRunner {
 	protected async executeScript(): Promise<void> {
 		const { vaultRelativeFilePath, absoluteFilePath } = this.getExecutionFilePath();
 
-		this.process = spawn(this.languageConfiguration.userConfigurable.consoleCommand, [absoluteFilePath, ...this.getCommandLineArgumentsAsStringArray()], {
+		if (this.runConfiguration.scriptData.scriptType === ScriptType.STRING) {
+			if (this.runConfiguration.executionPath?.mode === PathMode.ABSOLUTE) {
+				throw new Error(`can not run a ${this.languageConfiguration.language} script from string with path mode absolute`);
+			}
+
+			const content = this.runConfiguration.scriptData.scriptContent;
+			if (!content) {
+				throw new Error(`can not run a ${this.languageConfiguration.language} script from string with empty script content`);
+			}
+
+			console.log(`OSR | getting file ${vaultRelativeFilePath} for ${this.runConfiguration.uuid}`);
+			this.executionFileToCleanUp = this.plugin.app.vault.getAbstractFileByPath(normalizePath(vaultRelativeFilePath)) as TFile;
+			if (this.executionFileToCleanUp) {
+				console.log(`OSR | modifying execution file ${vaultRelativeFilePath} for ${this.runConfiguration.uuid}`);
+				await this.plugin.app.vault.modify(this.executionFileToCleanUp, content);
+			} else {
+				console.log(`OSR | creating execution file ${vaultRelativeFilePath} for ${this.runConfiguration.uuid}`);
+				this.executionFileToCleanUp = await this.plugin.app.vault.create(vaultRelativeFilePath, content);
+			}
+		}
+
+		console.log(`osr | running command: ${this.languageConfiguration.userConfigurable.consoleCommand} ${this.getCommandLineArgumentsAsStringArray()} ${absoluteFilePath}`);
+
+		this.process = spawn(this.languageConfiguration.userConfigurable.consoleCommand, [...this.getCommandLineArgumentsAsStringArray(), absoluteFilePath], {
 			detached: this.getDetachedOverride(),
 			shell: this.getDetachedOverride(),
 		});
@@ -137,8 +170,13 @@ export abstract class AbstractScriptRunner {
 			this.scriptConsoleLogError(data.toString());
 		});
 
-		this.process.on('exit', code => {
-			this.onScriptEndCallback?.(code);
+		this.process.on('exit', async code => {
+			await this.onScriptEndCallback?.(code);
+
+			if (this.executionFileToCleanUp) {
+				console.log(`OSR | deleting execution file ${this.executionFileToCleanUp.path} for ${this.runConfiguration.uuid}`);
+				await this.plugin.app.vault.delete(this.executionFileToCleanUp);
+			}
 			this.process = undefined;
 		});
 	}
@@ -147,7 +185,7 @@ export abstract class AbstractScriptRunner {
 		console.log(`OSR | running script of code block ${this.runConfiguration.uuid}`);
 		this.clearConsole();
 
-		this.onExecuteScriptCallback?.();
+		await this.onExecuteScriptCallback?.();
 		await this.executeScript();
 	}
 
@@ -165,7 +203,7 @@ export abstract class AbstractScriptRunner {
 			throw new Error(`Can not terminate script ${this.runConfiguration.uuid}, scripts of language ${this.languageConfiguration.language} can not be terminated`);
 		}
 
-		this.onTerminateScriptCallback?.(reason);
+		await this.onTerminateScriptCallback?.(reason);
 		return await this.terminateScript(reason);
 	}
 
@@ -187,7 +225,7 @@ export abstract class AbstractScriptRunner {
 			throw new Error(`Can not send input to script ${this.runConfiguration.uuid}, scripts of language ${this.languageConfiguration.language} can not receive inputs`);
 		}
 
-		this.onSendInputCallback?.(data);
+		await this.onSendInputCallback?.(data);
 		return await this.sendInput(data);
 	}
 
@@ -196,22 +234,28 @@ export abstract class AbstractScriptRunner {
 	// region execution file
 
 	getExecutionFilePath(): { vaultRelativeFilePath: string; absoluteFilePath: string } {
-		const executionPath = this.runConfiguration.executionPath ?? { mode: PathMode.FILE_RELATIVE, path: '' };
+		let {mode, path: exePath} = this.runConfiguration.executionPath ?? { mode: PathMode.FILE_RELATIVE, path: '' };
+
+		if (this.runConfiguration.scriptData.scriptType === ScriptType.STRING) {
+			if (isPath(exePath)) {
+				exePath = path.join(exePath, this.getExecutionFileName());
+			}
+		}
 
 		let vaultRelativeFilePath: string = '';
 		let absoluteFilePath: string = '';
-		if (executionPath.mode === PathMode.FILE_RELATIVE) {
+		if (mode === PathMode.FILE_RELATIVE) {
 			const activeFile = getActiveFile();
 			if (!activeFile) {
 				throw new Error('can not run script with file relative execution path, no file is open');
 			}
-			vaultRelativeFilePath = path.join(activeFile.parent.path, executionPath.path);
+			vaultRelativeFilePath = path.join(activeFile.parent.path, exePath);
 			absoluteFilePath = path.join(getVaultBasePath(), vaultRelativeFilePath);
-		} else if (executionPath.mode === PathMode.VAULT_RELATIVE) {
-			vaultRelativeFilePath = executionPath.path;
+		} else if (mode === PathMode.VAULT_RELATIVE) {
+			vaultRelativeFilePath = exePath;
 			absoluteFilePath = path.join(getVaultBasePath(), vaultRelativeFilePath);
-		} else if (executionPath.mode === PathMode.ABSOLUTE) {
-			absoluteFilePath = executionPath.path;
+		} else if (mode === PathMode.ABSOLUTE) {
+			absoluteFilePath = exePath;
 		}
 
 		return { vaultRelativeFilePath, absoluteFilePath };
@@ -298,23 +342,23 @@ export abstract class AbstractScriptRunner {
 		this.onScriptConsoleLogCallback = callback;
 	}
 
-	public onExecuteScript(callback: () => void): void {
+	public onExecuteScript(callback: () => void): void | Promise<void> {
 		this.onExecuteScriptCallback = callback;
 	}
 
-	public onTerminateScript(callback: (reason: string | Error) => void): void {
+	public onTerminateScript(callback: (reason: string | Error) => void): void | Promise<void> {
 		this.onTerminateScriptCallback = callback;
 	}
 
-	public onSendInput(callback: (data: string) => void): void {
+	public onSendInput(callback: (data: string) => void): void | Promise<void> {
 		this.onSendInputCallback = callback;
 	}
 
-	public onScriptStart(callback: () => void): void {
+	public onScriptStart(callback: () => void): void | Promise<void> {
 		this.onScriptStartCallback = callback;
 	}
 
-	public onScriptEnd(callback: (code: number | undefined | null) => void): void {
+	public onScriptEnd(callback: (code: number | undefined | null) => void): void | Promise<void> {
 		this.onScriptEndCallback = callback;
 	}
 

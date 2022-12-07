@@ -1,5 +1,5 @@
-import {Language} from './scriptRunners/AbstractScriptRunner';
-import {ArgumentType, CommandLineArgument, Path, PathMode} from './RunConfiguration';
+import { Language } from './scriptRunners/AbstractScriptRunner';
+import { ArgumentType, CommandLineArgument } from './RunConfiguration';
 
 export const DEFAULT_PYTHON_LANG_CONFIG: LanguageConfiguration = {
 	language: Language.PYTHON,
@@ -81,7 +81,6 @@ export const DEFAULT_JS_LANG_CONFIG: LanguageConfiguration = {
 		canOverrideDetached: false,
 	},
 };
-
 
 export function getDefaultLanguageCofigForLanguage(lang: Language): LanguageConfiguration | undefined {
 	const map: Record<Language, LanguageConfiguration | undefined> = {

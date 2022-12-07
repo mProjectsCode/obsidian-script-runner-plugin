@@ -1,24 +1,24 @@
-import {MarkdownRenderChild} from 'obsidian';
-import {RunConfiguration} from '../RunConfiguration';
+import { MarkdownRenderChild } from 'obsidian';
+import { PathMode, RunConfiguration, ScriptType } from '../RunConfiguration';
 import ScriptRunnerPlugin from '../main';
-import {getDefaultLanguageCofigForLanguage, LanguageConfiguration} from '../LanguageConfiguration';
-import {getPlaceholderUUID} from '../utils/Utils';
-import {Language} from '../scriptRunners/AbstractScriptRunner';
-// @ts-ignore
-import {CodeRunnerMdRenderChild} from './CodeRunnerMdRenderChild.svelte';
+import { getDefaultLanguageCofigForLanguage, LanguageConfiguration } from '../LanguageConfiguration';
+import { getPlaceholderUUID } from '../utils/Utils';
+import {AbstractScriptRunner, Language, LanguageMap} from '../scriptRunners/AbstractScriptRunner';
+import CodeRunnerMdRenderChild from './CodeRunnerMdRenderChild.svelte';
+import { ScriptRunnerFactory } from '../scriptRunners/ScriptRunnerFactory';
 
 export interface CodeMdRenderChildState {
-	uuid: string,
-	uuidParseError: string | undefined,
-	codeBlockContent: string,
-	scriptState: ScriptState,
-	runConfig?: RunConfiguration,
-	languageConfig: LanguageConfiguration
+	uuid: string;
+	uuidParseError: string | undefined;
+	codeBlockContent: string;
+	scriptState: ScriptState;
+	runConfig?: RunConfiguration;
+	languageConfig: LanguageConfiguration;
 }
 
 export interface ScriptState {
-	isRunning: boolean,
-	hasRun: boolean,
+	isRunning: boolean;
+	hasRun: boolean;
 }
 
 const idFieldName: string = 'script-id';
@@ -28,6 +28,7 @@ export class CodeMdRenderChild extends MarkdownRenderChild {
 	state: CodeMdRenderChildState;
 	codeBlockLanguage: string;
 	component: CodeRunnerMdRenderChild;
+	scriptRunner?: AbstractScriptRunner;
 
 	constructor(containerEl: HTMLElement, plugin: ScriptRunnerPlugin, codeBlockLanguage: string, content: string) {
 		super(containerEl);
@@ -53,6 +54,61 @@ export class CodeMdRenderChild extends MarkdownRenderChild {
 		};
 
 		this.parseId();
+
+		if (!this.state.uuidParseError) {
+			this.state.runConfig = this.plugin.loadRunConfig(this.state.uuid, this.getDefaultRunConfig());
+			this.scriptRunner = ScriptRunnerFactory.createScriptRunner(this.state.languageConfig.language, this.plugin, this.state.runConfig);
+			this.scriptRunner.onScriptConsoleLog(() => {
+				this.component.update();
+			});
+
+			this.scriptRunner.onScriptStart(() => {
+				this.state.scriptState.isRunning = true;
+				this.state.scriptState.hasRun = true;
+				this.component.update();
+			});
+			this.scriptRunner.onSendInput(message => {
+				this.scriptRunner?.scriptConsoleLogTrace(message);
+			});
+			this.scriptRunner.onTerminateScript((reason: string | Error) => {
+				if (reason instanceof Error) {
+					this.scriptRunner?.scriptConsoleLogError(`Script terminated because of error:\n${reason.message}`);
+				} else {
+					this.scriptRunner?.scriptConsoleLogWarn(`Script terminated because of:\n${reason}`);
+				}
+			});
+			this.scriptRunner.onScriptEnd(code => {
+				this.state.scriptState.isRunning = false;
+				if (code === undefined) {
+					this.component.update();
+					return;
+				}
+				this.scriptRunner?.scriptConsoleLogTrace(`\n\nScript exited with code ${code ?? 0}`);
+			});
+		}
+	}
+
+	private getDefaultRunConfig(): RunConfiguration {
+		return {
+			uuid: this.state.uuid,
+			executionPath: {
+				mode: PathMode.FILE_RELATIVE,
+				path: '',
+			},
+			scriptData: {
+				scriptContent: this.state.codeBlockContent,
+				scriptType: ScriptType.STRING,
+				scriptConsole: [],
+			},
+			scriptArguments: [],
+			overrides: {
+				overrideDetached: false,
+				detached: undefined,
+				overrideCommandLineArguments: false,
+				commandLineArguments: undefined,
+			},
+			language: this.state.languageConfig.language,
+		};
 	}
 
 	private parseLanguage(): Language {
@@ -68,9 +124,9 @@ export class CodeMdRenderChild extends MarkdownRenderChild {
 			throw Error('can not parse language,, code block language to short');
 		}
 
-		const langStr = this.codeBlockLanguage.substring(0, this.codeBlockLanguage.length - 7);
+		const langStr: string = this.codeBlockLanguage.substring(0, this.codeBlockLanguage.length - 7);
 
-		return langStr as Language;
+		return LanguageMap[langStr] ?? Language.UNDEFINED;
 	}
 
 	getIdCommentPlaceHolder(): string {
@@ -137,7 +193,10 @@ export class CodeMdRenderChild extends MarkdownRenderChild {
 		console.log(this.state);
 
 		this.component = new CodeRunnerMdRenderChild({
-
+			target: this.containerEl,
+			props: {
+				renderChild: this,
+			},
 		});
 	}
 }

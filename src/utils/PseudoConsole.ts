@@ -18,17 +18,12 @@ export interface LogEntry {
 }
 
 export class PseudoConsole {
-	onLogCallback: (LogEntry: LogEntry) => void = (): void => {
-	};
+	onLogCallback: (LogEntry: LogEntry) => void = (): void => {};
 
-	onTraceCallback: (LogEntry: LogEntry) => void = (): void => {
-	};
-	onInfoCallback: (LogEntry: LogEntry) => void = (): void => {
-	};
-	onWarnCallback: (LogEntry: LogEntry) => void = (): void => {
-	};
-	onErrorCallback: (LogEntry: LogEntry) => void = (): void => {
-	};
+	onTraceCallback: (LogEntry: LogEntry) => void = (): void => {};
+	onInfoCallback: (LogEntry: LogEntry) => void = (): void => {};
+	onWarnCallback: (LogEntry: LogEntry) => void = (): void => {};
+	onErrorCallback: (LogEntry: LogEntry) => void = (): void => {};
 
 	addNewline: boolean;
 

@@ -5,20 +5,20 @@ export interface RunConfiguration {
 	language: Language;
 	uuid: string;
 	scriptData: ScriptData;
-	executionPath: Path| undefined;
+	executionPath: Path | undefined;
 	scriptArguments: ScriptArgument[];
 	overrides: {
 		overrideDetached: boolean;
-		detached: boolean | undefined,
+		detached: boolean | undefined;
 		overrideCommandLineArguments: boolean;
 		commandLineArguments: CommandLineArgument[] | undefined;
 	};
 }
 
 export interface ScriptData {
-	scriptType: string,
-	scriptContent?: string,
-	scriptConsole: LogEntry[],
+	scriptType: string;
+	scriptContent?: string;
+	scriptConsole: LogEntry[];
 }
 
 export const ScriptType = {
@@ -28,8 +28,8 @@ export const ScriptType = {
 export type ScriptType = typeof ScriptType[keyof typeof ScriptType];
 
 export interface Path {
-	mode: PathMode,
-	path: string,
+	mode: PathMode;
+	path: string;
 }
 
 export const PathMode = {
@@ -43,9 +43,9 @@ export type ScriptArgument = Argument;
 export type CommandLineArgument = Argument;
 
 export interface Argument {
-	type: ArgumentType,
-	key: string | undefined,
-	value: string,
+	type: ArgumentType;
+	key: string | undefined;
+	value: string;
 }
 
 export const ArgumentType = {

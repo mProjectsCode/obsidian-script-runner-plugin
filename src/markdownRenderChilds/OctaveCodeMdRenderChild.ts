@@ -2,7 +2,7 @@ import { AbstractCodeMdRenderChild } from './AbstractCodeMdRenderChild';
 import ScriptRunnerPlugin from '../main';
 import { MarkdownPostProcessorContext } from 'obsidian';
 import { ChildProcess, spawn } from 'child_process';
-import {Language} from '../scriptRunners/AbstractScriptRunner';
+import { Language } from '../scriptRunners/AbstractScriptRunner';
 
 export class OctaveCodeMdRenderChild extends AbstractCodeMdRenderChild {
 	process?: ChildProcess;
