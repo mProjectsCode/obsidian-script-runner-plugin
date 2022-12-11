@@ -121,7 +121,7 @@
 						<Button>Running...</Button>
 					{/if}
 				{:else}
-					<Button on:click={() => {renderChild.scriptRunner.tryExecuteScript()}}>Run</Button>
+					<Button on:click={() => {renderChild.scriptRunner.saveExecuteScript()}}>Run</Button>
 				{/if}
 			</SettingItem>
 

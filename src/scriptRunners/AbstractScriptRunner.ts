@@ -33,6 +33,7 @@ export abstract class AbstractScriptRunner {
 	protected onExecuteScriptCallback?: () => void | Promise<void>;
 	protected onTerminateScriptCallback?: (reason: string | Error) => void | Promise<void>;
 	protected onSendInputCallback?: (data: string) => void | Promise<void>;
+	protected onExecutionErrorCallback?: (error: Error) => void | Promise<void>;
 
 	protected onScriptStartCallback?: () => void | Promise<void>;
 	protected onScriptEndCallback?: (code: number | undefined | null) => void | Promise<void>;
@@ -102,27 +103,33 @@ export abstract class AbstractScriptRunner {
 		}
 	}
 
+	getArgumentAsStringArray(argument: CommandLineArgument): string[] {
+		if (argument.type === ArgumentType.SINGLE_VALUE) {
+			if (!argument.value) {
+				throw new Error('Argument value may not be empty');
+			}
+			return [argument.value];
+		} else if (argument.type === ArgumentType.KEY_VALUE) {
+			if (!argument.value) {
+				throw new Error('Argument value may not be empty');
+			}
+			if (!argument.key) {
+				throw new Error('Argument key may not be empty');
+			}
+			return [argument.key, argument.value];
+		} else {
+			throw new Error('Undefined argument type');
+		}
+	}
+
 	getCommandLineArgumentsAsStringArray(): string[] {
 		return this.getCommandLineArgumentsOverride()
-			.map(x => {
-				if (x.type === ArgumentType.SINGLE_VALUE) {
-					if (!x.value) {
-						throw new Error('Argument value may not be empty');
-					}
-					return [x.value];
-				} else if (x.type === ArgumentType.KEY_VALUE) {
-					if (!x.value) {
-						throw new Error('Argument value may not be empty');
-					}
-					if (!x.key) {
-						throw new Error('Argument key may not be empty');
-					}
-					return [x.key, x.value];
-				} else {
-					throw new Error('Undefined argument type');
-				}
-			})
+			.map(x => this.getArgumentAsStringArray(x))
 			.flat(1);
+	}
+
+	getCommandLineExecutionArgumentAsStringArray(): string[] {
+		return this.languageConfiguration.commandLineExecutionArgument ? this.getArgumentAsStringArray(this.languageConfiguration.commandLineExecutionArgument) : [];
 	}
 
 	// endregion
@@ -153,12 +160,20 @@ export abstract class AbstractScriptRunner {
 			}
 		}
 
-		console.log(`osr | running command: ${this.languageConfiguration.userConfigurable.consoleCommand} ${this.getCommandLineArgumentsAsStringArray()} ${absoluteFilePath}`);
+		console.log(`osr | running command: ${this.languageConfiguration.userConfigurable.consoleCommand} ${this.getCommandLineArgumentsAsStringArray()} ${this.getCommandLineExecutionArgumentAsStringArray()} ${absoluteFilePath}`);
 
-		this.process = spawn(this.languageConfiguration.userConfigurable.consoleCommand, [...this.getCommandLineArgumentsAsStringArray(), absoluteFilePath], {
-			detached: this.getDetachedOverride(),
-			shell: this.getDetachedOverride(),
-		});
+		this.process = spawn(
+			this.languageConfiguration.userConfigurable.consoleCommand,
+			[
+				...this.getCommandLineArgumentsAsStringArray(),
+				...this.getCommandLineExecutionArgumentAsStringArray(),
+				absoluteFilePath,
+			],
+			{
+				detached: this.getDetachedOverride(),
+				shell: this.getDetachedOverride(),
+			}
+		);
 
 		this.onScriptStartCallback?.();
 
@@ -187,6 +202,14 @@ export abstract class AbstractScriptRunner {
 
 		await this.onExecuteScriptCallback?.();
 		await this.executeScript();
+	}
+
+	public async saveExecuteScript(): Promise<void> {
+		try {
+			await this.tryExecuteScript();
+		} catch (e) {
+			await this.onExecutionErrorCallback?.(e);
+		}
 	}
 
 	protected async terminateScript(reason: string | Error): Promise<void> {
@@ -261,7 +284,6 @@ export abstract class AbstractScriptRunner {
 		return { vaultRelativeFilePath, absoluteFilePath };
 	}
 
-	// TODO: move to code block version
 	getExecutionFileName(): string {
 		return `${this.languageConfiguration.language}_${this.runConfiguration.uuid.replaceAll('-', '_')}.${this.languageConfiguration.fileEnding}`;
 	}
@@ -360,6 +382,10 @@ export abstract class AbstractScriptRunner {
 
 	public onScriptEnd(callback: (code: number | undefined | null) => void): void | Promise<void> {
 		this.onScriptEndCallback = callback;
+	}
+
+	public onExecutionError(callback: (error: Error) => void): void | Promise<void> {
+		this.onExecutionErrorCallback = callback;
 	}
 
 	// endregion
