@@ -66,6 +66,7 @@ export class CodeMdRenderChild extends MarkdownRenderChild {
 				this.state.scriptState.isRunning = true;
 				this.state.scriptState.hasRun = true;
 				this.component.update();
+				this.plugin.saveRunConfig(this.state.runConfig!);
 			});
 			this.scriptRunner.onSendInput(message => {
 				this.scriptRunner?.scriptConsoleLogTrace(message);
@@ -84,7 +85,12 @@ export class CodeMdRenderChild extends MarkdownRenderChild {
 					return;
 				}
 				this.scriptRunner?.scriptConsoleLogTrace(`\n\nScript exited with code ${code ?? 0}`);
+				this.plugin.saveRunConfig(this.state.runConfig!);
 			});
+			this.scriptRunner.onExecutionError(error => {
+				console.warn('osc | error while executing script', error);
+				this.scriptRunner?.scriptConsoleLogError(`error while executing script:\n${error.message}`);
+			})
 		}
 	}
 

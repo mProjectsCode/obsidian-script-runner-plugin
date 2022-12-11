@@ -8,15 +8,14 @@ export const DEFAULT_PYTHON_LANG_CONFIG: LanguageConfiguration = {
 	userConfigurable: {
 		consoleCommand: 'py',
 	},
+	commandLineExecutionArgument: {
+		type: ArgumentType.SINGLE_VALUE,
+		key: undefined,
+		value: '-u',
+	},
 	languageDefaults: {
 		detached: false,
-		commandLineArguments: [
-			{
-				type: ArgumentType.SINGLE_VALUE,
-				key: undefined,
-				value: '-u',
-			},
-		],
+		commandLineArguments: [],
 	},
 	permissions: {
 		canTerminateScript: true,
@@ -35,6 +34,7 @@ export const DEFAULT_OCTAVE_LANG_CONFIG: LanguageConfiguration = {
 	userConfigurable: {
 		consoleCommand: 'octave',
 	},
+	commandLineExecutionArgument: undefined,
 	languageDefaults: {
 		detached: true,
 		commandLineArguments: [
@@ -62,15 +62,10 @@ export const DEFAULT_JS_LANG_CONFIG: LanguageConfiguration = {
 	userConfigurable: {
 		consoleCommand: '',
 	},
+	commandLineExecutionArgument: undefined,
 	languageDefaults: {
 		detached: false,
-		commandLineArguments: [
-			{
-				type: ArgumentType.SINGLE_VALUE,
-				key: undefined,
-				value: '-u',
-			},
-		],
+		commandLineArguments: [],
 	},
 	permissions: {
 		canTerminateScript: false,
@@ -101,6 +96,7 @@ export interface LanguageConfiguration {
 	userConfigurable: {
 		consoleCommand: string;
 	};
+	commandLineExecutionArgument: CommandLineArgument | undefined;
 	languageDefaults: {
 		detached: boolean;
 		commandLineArguments: CommandLineArgument[];
